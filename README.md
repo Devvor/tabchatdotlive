@@ -10,15 +10,20 @@ Introducing TabChat, simply one click save from your browser extension, then hav
 
 - 🔗 **Browser Extension** - Save any webpage with one click
 - 🎙️ **Real-time Voice Chat** - Have natural voice conversations with your AI teacher
-- 📚 **Content Processing** - Automatically extracts and understands webpage content
-- 💬 **Conversation History** - Review and continue past learning sessions
+- 📚 **Content Processing** - Automatically extracts key information curated for you
 - 📱 **Mobile Optimized** - Learn on the go, even while driving
+
+## 🎬 Demo
+
+**[▶️ WATCH DEMO](https://youtube.com/shorts/XD0NYJOMEOA?feature=share)**
+
+> **Note:** Demo video includes all features as of October 5th, 2025
 
 ## Installation
 
 ### Install the Chrome Extension
 
-1. **Download the extension zip file**: Download `chrome-mv3-prod.zip` from the repository
+1. **Download the extension zip file**: [Download `chrome-mv3-prod.zip`](https://github.com/Devvor/tabchatdotlive/releases/latest/download/chrome-mv3-prod.zip) from the [latest release](https://github.com/Devvor/tabchatdotlive/releases/latest)
 
 2. **Extract the zip file**: Unzip the downloaded file to a location on your computer
 
