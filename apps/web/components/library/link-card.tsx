@@ -7,15 +7,12 @@ import { api } from "@learnor/convex";
 import { formatDistanceToNow } from "date-fns";
 import { 
   MessageSquare, 
-  BookOpen, 
   CheckCircle, 
   Circle, 
   MoreVertical,
   ExternalLink,
   Trash2,
-  Sparkles,
   Loader2,
-  AlertCircle,
   FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,39 +22,91 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TLDRDialog } from "./tldr-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Type for topic data
+interface Topic {
+  _id: string;
+  userId: string;
+  linkId: string;
+  name: string;
+  description?: string;
+  summary: string;
+  keyPoints: string[];
+  createdAt: number;
+}
+
+// Type for link data (matches Convex schema)
+interface LinkData {
+  _id: string;
+  userId: string;
+  url: string;
+  title: string;
+  description?: string;
+  favicon?: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  processedContent?: string;
+  contentSummary?: string;
+  createdAt: number;
+  processedAt?: number;
+  isRead?: boolean;
+  topic?: Topic | null;
+}
+
 interface LinkCardProps {
-  link: any; // Will be properly typed after Convex regenerates types
+  link: LinkData;
 }
 
 export function LinkCard({ link }: LinkCardProps) {
   const [tldrOpen, setTldrOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const toggleRead = useMutation(api.links.toggleReadStatus);
   const removeLink = useMutation(api.links.remove);
   
   // Get topic if not provided (fallback for backward compatibility)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkIdForQuery = link._id as any; // Convex IDs are strings at runtime
   const topic = useQuery(
     api.topics.getByLink,
-    link.topic === undefined ? { linkId: link._id } : "skip"
+    link.topic === undefined ? { linkId: linkIdForQuery } : "skip"
   );
   
-  const displayTopic = link.topic || topic;
+  // Merge topic data - use the one from link first, then fallback to queried topic
+  const displayTopic: Topic | null | undefined = link.topic ?? (topic as Topic | null | undefined);
 
   const handleToggleRead = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleRead({ linkId: link._id, isRead: !link.isRead });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    toggleRead({ linkId: link._id as any, isRead: !link.isRead });
   };
 
-  const handleRemove = (e: React.MouseEvent) => {
+  const handleRemoveClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm("Are you sure you want to delete this link?")) {
-      removeLink({ linkId: link._id });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await removeLink({ linkId: link._id as any });
+      setDeleteDialogOpen(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -126,7 +175,7 @@ export function LinkCard({ link }: LinkCardProps) {
                     <ExternalLink className="w-4 h-4 mr-2" /> Open original
                   </a>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleRemove} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={handleRemoveClick} className="text-destructive focus:text-destructive">
                   <Trash2 className="w-4 h-4 mr-2" /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -198,13 +247,48 @@ export function LinkCard({ link }: LinkCardProps) {
         </div>
       </div>
 
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <TLDRDialog 
-        linkId={link._id} 
+        linkId={link._id as any} 
         title={link.title}
         url={link.url}
         isOpen={tldrOpen} 
         onOpenChange={setTldrOpen} 
       />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Link</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{link.title}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -7,7 +7,7 @@ import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Learnor - AI Teachers from Your Links",
+  title: "TabChat - Chat with your tabs",
   description:
     "Turn any webpage into an AI teacher. Save links and learn through real-time voice conversations.",
   manifest: "/manifest.json",

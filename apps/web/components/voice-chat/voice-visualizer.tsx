@@ -8,7 +8,7 @@ interface VoiceVisualizerProps {
   audioLevel: number;
   isActive: boolean;
   mode: "listening" | "speaking" | "idle";
-  onClick?: () => void;
+  onClick?: () => void | Promise<void>;
   isLoading?: boolean;
 }
 

@@ -1,6 +1,6 @@
 {
-  "name": "Learnor",
-  "short_name": "Learnor",
+  "name": "TabChat",
+  "short_name": "TabChat",
   "description": "Turn any webpage into an AI teacher for voice learning",
   "start_url": "/dashboard",
   "display": "standalone",

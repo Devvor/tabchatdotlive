@@ -22,6 +22,7 @@ export default function NewChatPage() {
   const linkUrl = searchParams.get("linkUrl");
 
   const [isLoading, setIsLoading] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
   const [topicContent, setTopicContent] = useState<{
     markdown: string;
     title?: string;
@@ -181,15 +182,29 @@ export default function NewChatPage() {
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
-                    <Input placeholder="https://..." className="h-12 bg-white border-gray-200 text-base" />
-                    <Button className="h-12 px-5 bg-black text-white hover:bg-gray-800 transition-all shadow-sm" onClick={() => {
-                       const url = prompt("Enter URL:");
-                       if (url) router.push(`/chat/new?linkUrl=${encodeURIComponent(url)}`);
-                    }}>
+                <form 
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (urlInput.trim()) {
+                      router.push(`/chat/new?linkUrl=${encodeURIComponent(urlInput.trim())}`);
+                    }
+                  }}
+                >
+                    <Input 
+                      placeholder="https://..." 
+                      className="h-12 bg-white border-gray-200 text-base" 
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                    />
+                    <Button 
+                      type="submit"
+                      className="h-12 px-5 bg-black text-white hover:bg-gray-800 transition-all shadow-sm"
+                      disabled={!urlInput.trim()}
+                    >
                         <Zap className="w-5 h-5" />
-                  </Button>
-                </div>
+                    </Button>
+                </form>
               </div>
             </div>
           </div>

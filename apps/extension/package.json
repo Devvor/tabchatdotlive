@@ -39,7 +39,8 @@
       "https://*.clerk.accounts.dev/*",
       "https://*.convex.cloud/*",
       "http://localhost:3000/*",
-      "https://*.vercel.app/*"
+      "https://*.vercel.app/*",
+      "https://tabchat.live/*"
     ]
   }
 }

@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { Sparkles, ArrowRight, Check, PlayCircle } from "lucide-react";
+import { ArrowRight, Check, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default async function LandingPage() {
@@ -17,10 +18,14 @@ export default async function LandingPage() {
       <header className="border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-lg tracking-tight text-black">Learnor</span>
+            <Image
+              src="/tabchat_logo.png"
+              alt="TabChat"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+            <span className="font-bold text-lg tracking-tight text-black">TabChat</span>
           </div>
           
             <div className="flex items-center gap-4">
@@ -48,7 +53,7 @@ export default async function LandingPage() {
             </h1>
 
           <p className="text-xl text-gray-500 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Learnor digests articles, PDFs, and documentation instantly. Then, it teaches you through natural voice conversation.
+            TabChat reads your open tabs for you. Then, it teaches you through a voice chat.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -93,7 +98,7 @@ export default async function LandingPage() {
       {/* Social Proof / Footer */}
       <footer className="bg-white border-t border-gray-100 py-12">
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-gray-500">
-          <p>© 2024 Learnor Inc.</p>
+          <p>© 2025 TabChat.</p>
           <div className="flex gap-8">
             <Link href="#" className="hover:text-black">Privacy</Link>
             <Link href="#" className="hover:text-black">Terms</Link>

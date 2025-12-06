@@ -13,6 +13,35 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LinkCard } from "@/components/library/link-card";
 import { ActivityCalendar } from "@/components/library/activity-calendar";
 
+// Type for topic data
+interface Topic {
+  _id: string;
+  userId: string;
+  linkId: string;
+  name: string;
+  description?: string;
+  summary: string;
+  keyPoints: string[];
+  createdAt: number;
+}
+
+// Type for link data with topic (matches getByUserWithTopics return)
+interface LinkWithTopic {
+  _id: string;
+  userId: string;
+  url: string;
+  title: string;
+  description?: string;
+  favicon?: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  processedContent?: string;
+  contentSummary?: string;
+  createdAt: number;
+  processedAt?: number;
+  isRead?: boolean;
+  topic?: Topic | null;
+}
+
 export default function LibraryPage() {
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,30 +76,31 @@ export default function LibraryPage() {
   }, [user?.id, convexUser, isEnsuringUser]);
 
   // Get links for the user with topics
+  // Using type assertion since Convex types may need regeneration with `npx convex dev`
   const links = useQuery(
-    // @ts-ignore - Convex types may be out of sync, but function exists at runtime
-    api.links.getByUserWithTopics,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (api.links as any).getByUserWithTopics,
     convexUser?._id ? { userId: convexUser._id } : "skip"
-  );
+  ) as LinkWithTopic[] | undefined;
 
   // Filter links
   const filteredLinks = useMemo(() => {
     if (!links) return [];
     
-    let filtered = links as Array<any>;
+    let filtered = links;
 
     // Filter by tab
     if (activeTab === "unread") {
-      filtered = filtered.filter((link: any) => !link.isRead);
+      filtered = filtered.filter((link) => !link.isRead);
     } else if (activeTab === "read") {
-      filtered = filtered.filter((link: any) => link.isRead);
+      filtered = filtered.filter((link) => link.isRead);
     }
 
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (link: any) =>
+        (link) =>
           link.title.toLowerCase().includes(query) ||
           link.url.toLowerCase().includes(query) ||
           (link.topic?.description && link.topic.description.toLowerCase().includes(query)) ||
@@ -152,7 +182,7 @@ export default function LibraryPage() {
       {/* Links list */}
       {links !== undefined && filteredLinks.length > 0 && (
         <div className="space-y-4">
-          {filteredLinks.map((link: any) => (
+          {filteredLinks.map((link) => (
             <LinkCard key={link._id} link={link} />
           ))}
         </div>
