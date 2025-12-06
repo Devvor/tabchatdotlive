@@ -10,7 +10,6 @@
     "clean": "rm -rf .next node_modules .turbo"
   },
   "dependencies": {
-    "@11labs/client": "^0.2.0",
     "@clerk/nextjs": "^5.7.0",
     "@clerk/themes": "^2.4.42",
     "@elevenlabs/client": "^0.12.0",
