@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { ClerkProvider, type ClerkProviderProps } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
@@ -38,7 +38,7 @@ export default function RootLayout({
   const clerkProviderProps = {
     publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!,
     ...(clerkDomain && { domain: clerkDomain }),
-  } as ClerkProviderProps;
+  } as React.ComponentProps<typeof ClerkProvider>;
   
   return (
     <ClerkProvider {...clerkProviderProps}>
