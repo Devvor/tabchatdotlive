@@ -26,8 +26,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Get Clerk domain from environment variable if using custom domain
+  const clerkDomain = process.env.NEXT_PUBLIC_CLERK_DOMAIN;
+  
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      {...(clerkDomain ? { domain: clerkDomain } : {})}
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    >
       <html
         lang="en"
         className={`${GeistSans.variable} ${GeistMono.variable}`}

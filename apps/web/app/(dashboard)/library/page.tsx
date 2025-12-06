@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@learnor/convex";
@@ -17,6 +17,7 @@ export default function LibraryPage() {
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [isEnsuringUser, setIsEnsuringUser] = useState(false);
 
   // Get Convex user
   const convexUser = useQuery(
@@ -24,9 +25,31 @@ export default function LibraryPage() {
     user?.id ? { clerkId: user.id } : "skip"
   );
 
+  // Ensure user exists in Convex when they're logged in
+  useEffect(() => {
+    if (user?.id && convexUser === null && !isEnsuringUser) {
+      setIsEnsuringUser(true);
+      fetch("/api/users/ensure", {
+        method: "POST",
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.error("Failed to ensure user exists");
+          }
+        })
+        .catch((error) => {
+          console.error("Error ensuring user:", error);
+        })
+        .finally(() => {
+          setIsEnsuringUser(false);
+        });
+    }
+  }, [user?.id, convexUser, isEnsuringUser]);
+
   // Get links for the user with topics
   const links = useQuery(
-    api.links.getByUserWithTopics as any,
+    // @ts-ignore - Convex types may be out of sync, but function exists at runtime
+    api.links.getByUserWithTopics,
     convexUser?._id ? { userId: convexUser._id } : "skip"
   );
 

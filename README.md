@@ -80,9 +80,11 @@ Fill in your API keys:
 
 ```env
 # Clerk Authentication
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key
-CLERK_SECRET_KEY=sk_test_your_key
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_key  # Use pk_live_ for production
+CLERK_SECRET_KEY=sk_test_your_key                    # Use sk_live_ for production
 CLERK_WEBHOOK_SECRET=whsec_your_webhook_secret
+# Optional: Only set if using a custom Clerk domain (e.g., clerk.yourdomain.com)
+# NEXT_PUBLIC_CLERK_DOMAIN=clerk.yourdomain.com
 
 # Convex
 NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
@@ -174,6 +176,32 @@ npm run lint          # Lint all packages
 - **Web App** (`apps/web`): Next.js application with shadcn/ui components and voice chat interface
 - **Extension** (`apps/extension`): Plasmo-based browser extension for saving links
 - **Convex** (`packages/convex`): Shared backend schema and functions
+
+## Troubleshooting
+
+### Clerk Authentication Issues in Production
+
+If you're experiencing authentication issues in production (e.g., `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` errors):
+
+1. **Verify Production API Keys**: Ensure you're using production keys (`pk_live_` and `sk_live_`) in your production environment variables, not test keys.
+
+2. **Check Custom Domain Configuration**: 
+   - If you see errors referencing `clerk.yourdomain.com`, you may have a custom Clerk domain configured
+   - Option A: Remove the custom domain from your Clerk Dashboard → Domains (if not needed)
+   - Option B: Properly configure the custom domain:
+     - Set up DNS records as shown in Clerk Dashboard → Domains
+     - Wait for SSL certificate to be issued (can take up to 48 hours)
+     - Set `NEXT_PUBLIC_CLERK_DOMAIN=clerk.yourdomain.com` in your environment variables
+
+3. **Verify Environment Variables**: Ensure all Clerk environment variables are set in your hosting provider (Vercel, etc.):
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
+   - `CLERK_WEBHOOK_SECRET`
+   - `NEXT_PUBLIC_CLERK_DOMAIN` (only if using custom domain)
+
+4. **Check Clerk Status**: Visit [Clerk's status page](https://status.clerk.com/) to check for service outages
+
+5. **Review Application Logs**: Check your hosting provider's logs for specific error messages
 
 ## Contributing
 
