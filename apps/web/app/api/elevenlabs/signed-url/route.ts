@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
-export async function POST(req: NextRequest) {
+// Route handler for ElevenLabs signed URL generation
+export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
 
@@ -9,11 +10,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { agentId, systemPrompt } = await req.json();
+    const { searchParams } = new URL(req.url);
+    const agentId =
+      searchParams.get("agentId") || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
 
-    const targetAgentId = agentId || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
-
-    if (!targetAgentId) {
+    if (!agentId) {
       return NextResponse.json(
         { error: "Agent ID is required" },
         { status: 400 }
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // Get signed URL from ElevenLabs
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${targetAgentId}`,
+      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
       {
         method: "GET",
         headers: {
@@ -53,4 +54,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

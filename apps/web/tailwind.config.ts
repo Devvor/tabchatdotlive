@@ -80,6 +80,14 @@ const config: Config = {
           "0%": { boxShadow: "0 0 20px hsl(var(--primary) / 0.3)" },
           "100%": { boxShadow: "0 0 40px hsl(var(--primary) / 0.6)" },
         },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-20px)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% center" },
+          "100%": { backgroundPosition: "200% center" },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -87,6 +95,8 @@ const config: Config = {
         "pulse-ring": "pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         wave: "wave 1s ease-in-out infinite",
         glow: "glow 2s ease-in-out infinite alternate",
+        float: "float 6s ease-in-out infinite",
+        shimmer: "shimmer 8s linear infinite",
       },
     },
   },

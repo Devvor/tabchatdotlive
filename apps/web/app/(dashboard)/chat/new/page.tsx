@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Loader2, Link as LinkIcon, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { useConversation } from "@/hooks/use-conversation";
 import { VoiceVisualizer } from "@/components/voice-chat/voice-visualizer";
@@ -12,8 +12,8 @@ import { VoiceControls } from "@/components/voice-chat/voice-controls";
 import { scrapeUrl, generateTeacherPrompt } from "@/lib/firecrawl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 
 export default function NewChatPage() {
   const searchParams = useSearchParams();
@@ -29,7 +29,6 @@ export default function NewChatPage() {
   } | null>(null);
   const [systemPrompt, setSystemPrompt] = useState<string>("");
 
-  // Memoize the onMessage callback to prevent unnecessary re-renders
   const handleMessage = useCallback((message: { role: "user" | "assistant"; content: string; timestamp: number }) => {
     console.log("Message:", message);
   }, []);
@@ -47,10 +46,10 @@ export default function NewChatPage() {
     toggleMute,
   } = useConversation({
     systemPrompt,
+    voiceSpeed: 1.3,
     onMessage: handleMessage,
   });
 
-  // Memoize loadContent to prevent unnecessary re-renders
   const loadContent = useCallback(async (url: string) => {
     setIsLoading(true);
     try {
@@ -63,11 +62,7 @@ export default function NewChatPage() {
           keyPoints: result.data.extract?.keyPoints,
         });
 
-        const prompt = generateTeacherPrompt(result.data.markdown, {
-          title: result.data.extract?.title,
-          summary: result.data.extract?.summary,
-          keyPoints: result.data.extract?.keyPoints,
-        });
+        const prompt = generateTeacherPrompt(result.data.markdown);
         setSystemPrompt(prompt);
       } else {
         toast.error("Failed to load content");
@@ -78,9 +73,8 @@ export default function NewChatPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []); // All dependencies (setIsLoading, scrapeUrl, setTopicContent, generateTeacherPrompt, setSystemPrompt, toast) are stable
+  }, []);
 
-  // Load content from URL if provided
   useEffect(() => {
     if (linkUrl && !topicContent) {
       loadContent(linkUrl);
@@ -103,130 +97,132 @@ export default function NewChatPage() {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="h-[calc(100vh-4rem)] flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Header */}
-        <header className="flex-shrink-0 px-4 py-3 border-b border-border bg-card/50 backdrop-blur-xl">
-          <div className="flex items-center gap-4 max-w-4xl mx-auto">
-            <Button variant="ghost" size="icon" asChild>
+        <header className="flex-shrink-0 px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-900" asChild>
               <Link href="/dashboard">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
             </Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="font-semibold truncate">
-                {topicContent?.title || "New Conversation"}
+            <div>
+              <h1 className="font-semibold text-gray-900">
+                {topicContent?.title || "New Session"}
               </h1>
               {isConnected && (
-                <p className="text-xs text-emerald-500">Connected</p>
+                 <span className="text-xs font-medium text-green-600 flex items-center gap-1">
+                   <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse"/>
+                   Connected
+                 </span>
               )}
             </div>
           </div>
+          <Button variant="outline" size="sm">
+             End Session
+          </Button>
         </header>
 
         {/* Loading state */}
         {isLoading && (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
-              <Loader2 className="w-10 h-10 text-primary animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading content...</p>
+              <div className="relative w-12 h-12 mx-auto mb-4">
+                 <Loader2 className="w-12 h-12 text-gray-900 animate-spin" />
+              </div>
+              <p className="text-gray-500 font-medium">Analyzing content...</p>
             </div>
           </div>
         )}
 
         {/* Topic selection */}
         {!isLoading && !linkUrl && !topicContent && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <Card className="max-w-md w-full">
-              <CardContent className="p-8 text-center">
-                <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-6">
-                  <BookOpen className="w-10 h-10 text-muted-foreground" />
+          <div className="flex-1 flex items-center justify-center p-6 bg-gray-50/50">
+            <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-8 h-8 text-gray-900" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                Start Learning
+              </h2>
+              <p className="text-gray-500 mb-8">
+                Choose a source to begin your interactive session.
+              </p>
+              
+              <div className="space-y-4">
+                <Button variant="outline" className="w-full h-11 justify-start px-4 bg-white hover:bg-gray-50 text-gray-700 border-gray-200" asChild>
+                  <Link href="/library">
+                      <BookOpen className="w-4 h-4 mr-3 text-gray-400" />
+                      Select from Library
+                  </Link>
+                </Button>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-gray-100" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-white px-2 text-gray-400 font-medium">Or paste URL</span>
+                  </div>
                 </div>
-                <h2 className="text-xl font-semibold mb-3">
-                  Choose a topic to learn
-                </h2>
-                <p className="text-muted-foreground mb-6">
-                  Select a topic from your library or paste a URL to start
-                  learning with your AI teacher.
-                </p>
-                <div className="space-y-3">
-                  <Button variant="gradient" className="w-full" asChild>
-                    <Link href="/library">Browse Library</Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      const url = prompt("Enter a URL to learn from:");
-                      if (url) {
-                        router.push(
-                          `/chat/new?linkUrl=${encodeURIComponent(url)}`
-                        );
-                      }
-                    }}
-                  >
-                    Paste URL
+                
+                <div className="flex gap-2">
+                    <Input placeholder="https://..." className="h-11 bg-gray-50 border-gray-200" />
+                    <Button className="h-11 px-4 bg-black text-white hover:bg-gray-800" onClick={() => {
+                      // In a real app, we'd use state for the input value.
+                      // For now, simple prompt as fallback or update this to use state.
+                       const url = prompt("Enter URL:");
+                       if (url) router.push(`/chat/new?linkUrl=${encodeURIComponent(url)}`);
+                    }}>
+                        <Zap className="w-4 h-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Main chat interface */}
         {!isLoading && (topicContent || !linkUrl) && topicContent && (
-          <>
+          <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
             {/* Messages area */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto p-6">
               {messages.length > 0 ? (
+                <div className="max-w-3xl mx-auto">
                 <ChatMessages messages={messages} />
+                </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center px-6">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3 }}
-                    >
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center px-6 max-w-sm">
+                    <div className="mb-8 flex justify-center">
+                        <div className="w-32 h-32 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center">
                       <VoiceVisualizer
                         audioLevel={audioLevel}
                         isActive={isConnected}
                         mode={mode}
                       />
-                    </motion.div>
+                        </div>
+                    </div>
+                    
                     <AnimatePresence mode="wait">
                       {!isConnected && !isConnecting && (
                         <motion.div
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="mt-6"
                         >
-                          <h2 className="text-lg font-semibold mb-2">
-                            Ready to learn
-                          </h2>
-                          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                            Tap the microphone to start a voice conversation
-                            with your AI teacher
-                          </p>
+                           <h2 className="text-lg font-semibold text-gray-900 mb-1">Ready to start</h2>
+                           <p className="text-sm text-gray-500">Click the microphone below to begin talking.</p>
                         </motion.div>
                       )}
-                      {isConnected && mode === "listening" && (
-                        <motion.p
+                      {isConnected && (
+                        <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="mt-4 text-sm text-emerald-500"
                         >
-                          Listening... speak your question
-                        </motion.p>
-                      )}
-                      {isConnected && mode === "speaking" && (
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="mt-4 text-sm text-primary"
-                        >
-                          AI is speaking...
-                        </motion.p>
+                             <p className="text-sm font-medium text-gray-900 uppercase tracking-wide animate-pulse">
+                                 {mode === 'speaking' ? 'AI Speaking...' : 'Listening...'}
+                             </p>
+                        </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
@@ -235,8 +231,8 @@ export default function NewChatPage() {
             </div>
 
             {/* Controls */}
-            <div className="flex-shrink-0 pb-safe">
-              <div className="px-6 py-8 flex justify-center">
+            <div className="flex-shrink-0 bg-white border-t border-gray-200 p-6">
+              <div className="max-w-3xl mx-auto flex flex-col items-center gap-4">
                 <VoiceControls
                   isConnected={isConnected}
                   isConnecting={isConnecting}
@@ -245,22 +241,14 @@ export default function NewChatPage() {
                   onDisconnect={disconnect}
                   onToggleMute={toggleMute}
                 />
+                 {topicContent.summary && (
+                     <p className="text-xs text-gray-400 max-w-md text-center truncate">
+                         Context: {topicContent.summary}
+                     </p>
+                 )}
               </div>
-
-              {/* Topic info bar */}
-              {topicContent.summary && (
-                <div className="px-4 pb-4">
-                  <Card className="max-w-2xl mx-auto bg-secondary/50">
-                    <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {topicContent.summary}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </TooltipProvider>

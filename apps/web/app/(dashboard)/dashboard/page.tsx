@@ -1,120 +1,153 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
+import { api } from "@learnor/convex";
 import Link from "next/link";
-import { Mic, Plus, BookOpen, ArrowRight } from "lucide-react";
+import { Search, Plus, Filter, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LinkCard } from "@/components/library/link-card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+
+  // Get Convex user
+  const convexUser = useQuery(
+    api.users.getByClerkId,
+    user?.id ? { clerkId: user.id } : "skip"
+  );
+
+  // Get links for the user
+  const links = useQuery(
+    api.links.getByUser,
+    convexUser?._id ? { userId: convexUser._id } : "skip"
+  );
+
+  // Filter links
+  const filteredLinks = useMemo(() => {
+    if (!links) return [];
+    
+    let filtered = links;
+
+    // Filter by tab
+    if (activeTab === "unread") {
+      filtered = filtered.filter((link) => !link.isRead);
+    } else if (activeTab === "read") {
+      filtered = filtered.filter((link) => link.isRead);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (link) =>
+          link.title.toLowerCase().includes(query) ||
+          link.url.toLowerCase().includes(query) ||
+          (link.description && link.description.toLowerCase().includes(query))
+      );
+    }
+
+    return filtered;
+  }, [links, searchQuery, activeTab]);
 
   return (
-    <div className="min-h-screen p-6 lg:p-10">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome back{user?.firstName ? `, ${user.firstName}` : ""}!
+    <div className="h-[calc(100vh-4rem)] flex flex-col space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
+            <Library className="w-6 h-6" />
+            Library
           </h1>
-          <p className="text-muted-foreground">
-            Ready to learn something new? Start a voice conversation or browse
-            your library.
+          <p className="text-muted-foreground mt-1">
+            Your collection of saved knowledge sources.
           </p>
         </div>
 
-        {/* Quick actions */}
-        <div className="grid md:grid-cols-2 gap-4 mb-10">
-          <Link href="/chat/new" className="group">
-            <Card className="h-full bg-gradient-to-br from-primary/10 to-accent/10 hover:from-primary/20 hover:to-accent/20 transition-all border-primary/20">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25">
-                    <Mic className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-lg font-semibold mb-1">
-                      New Conversation
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Start learning with voice
-                    </p>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-              </CardContent>
-            </Card>
+        <Button className="shadow-sm" asChild>
+          <Link href="/chat/new">
+            <Plus className="w-4 h-4 mr-2" />
+            Add New Link
           </Link>
+        </Button>
+      </div>
 
-          <Link href="/library" className="group">
-            <Card className="h-full hover:bg-secondary/50 transition-all">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center">
-                    <BookOpen className="w-7 h-7 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <h2 className="text-lg font-semibold mb-1">Your Library</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Browse saved topics
-                    </p>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all" />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+      <div className="flex flex-col gap-4 flex-1 overflow-hidden">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-1 rounded-xl border shadow-sm">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+            <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:flex">
+              <TabsTrigger value="all">All Items</TabsTrigger>
+              <TabsTrigger value="unread">Unread</TabsTrigger>
+              <TabsTrigger value="read">Read</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search library..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 bg-background/50"
+            />
+          </div>
         </div>
 
-        {/* Recent activity */}
-        <Card className="mb-10">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Conversations</CardTitle>
-            <Button variant="link" asChild>
-              <Link href="/history">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="py-8 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
-                <Mic className="w-8 h-8 text-muted-foreground" />
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="pb-8">
+            {links === undefined ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-48 rounded-xl border bg-card p-4 space-y-4">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <Skeleton className="h-20 w-full" />
+                    <div className="pt-4 flex justify-between">
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-8 w-8" />
+                    </div>
+                  </div>
+                ))}
               </div>
-              <h3 className="text-lg font-medium mb-2">
-                No conversations yet
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Save a link using our browser extension, then start a voice
-                conversation to learn about the topic.
-              </p>
-              <Button variant="gradient" asChild>
-                <Link href="/chat/new" className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Start Your First Conversation
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Browser extension CTA */}
-        <Card className="bg-gradient-to-br from-primary/5 to-accent/5">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-1">
-                  Install the Browser Extension
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Save links with one click and turn any webpage into a learning
-                  topic.
+            ) : filteredLinks.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredLinks.map((link) => (
+                  <LinkCard key={link._id} link={link} />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Library className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground mb-2">
+                  {searchQuery || activeTab !== "all" 
+                    ? "No matches found" 
+                    : "Your library is empty"}
+                </h2>
+                <p className="text-muted-foreground max-w-sm mx-auto mb-6">
+                  {searchQuery || activeTab !== "all"
+                    ? "Try adjusting your search or filters to find what you're looking for."
+                    : "Save articles, docs, or videos to start building your personal knowledge base."}
                 </p>
+                {!searchQuery && activeTab === "all" && (
+                  <Button asChild>
+                    <Link href="/chat/new">Add Your First Link</Link>
+                  </Button>
+                )}
               </div>
-              <Button variant="outline" className="whitespace-nowrap">
-                Get Extension
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );

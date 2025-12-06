@@ -31,11 +31,15 @@
     "permissions": [
       "activeTab",
       "storage",
-      "tabs"
+      "tabs",
+      "cookies",
+      "scripting"
     ],
     "host_permissions": [
       "https://*.clerk.accounts.dev/*",
-      "https://*.convex.cloud/*"
+      "https://*.convex.cloud/*",
+      "http://localhost:3000/*",
+      "https://*.vercel.app/*"
     ]
   }
 }

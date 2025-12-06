@@ -1,4 +1,5 @@
 import { Storage } from "@plasmohq/storage";
+import { makeAuthenticatedRequest } from "./lib/auth";
 
 const storage = new Storage();
 
@@ -57,6 +58,59 @@ async function handleSaveLink(data: { url: string; title: string; favicon?: stri
   };
 
   await storage.set("savedLinks", [newLink, ...savedLinks]);
+
+  // Sync with Convex backend
+  try {
+    const webUrl = process.env.PLASMO_PUBLIC_WEB_URL || "http://localhost:3000";
+    console.log("Background: Attempting to save link to:", `${webUrl}/api/links/save`);
+    
+    const response = await makeAuthenticatedRequest(`${webUrl}/api/links/save`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: data.url,
+        title: data.title,
+        favicon: data.favicon,
+      }),
+    });
+
+    console.log("Background: Response status:", response.status);
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log("Background: Save successful:", result);
+      if (result.success) {
+        // Update local link status
+        const updatedLinks = savedLinks.map((link) =>
+          link.url === data.url ? { ...link, status: "completed" as const } : link
+        );
+        await storage.set("savedLinks", updatedLinks);
+      }
+    } else {
+      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      console.error("Background: Save failed:", errorData);
+      
+      if (response.status === 401) {
+        // User not authenticated - silently fail (user can login via popup)
+        console.log("User not authenticated - link saved locally only");
+      } else {
+        // Update status to failed for other errors
+        const updatedLinks = savedLinks.map((link) =>
+          link.url === data.url ? { ...link, status: "failed" as const } : link
+        );
+        await storage.set("savedLinks", updatedLinks);
+      }
+    }
+  } catch (error) {
+    console.error("Background: Failed to sync link to Convex:", error);
+    // Update status to failed
+    const updatedLinks = savedLinks.map((link) =>
+      link.url === data.url ? { ...link, status: "failed" as const } : link
+    );
+    await storage.set("savedLinks", updatedLinks);
+  }
 }
 
 // Create context menu item

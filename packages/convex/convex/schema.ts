@@ -30,6 +30,7 @@ export default defineSchema({
     contentSummary: v.optional(v.string()),
     createdAt: v.number(),
     processedAt: v.optional(v.number()),
+    isRead: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_status", ["userId", "status"])

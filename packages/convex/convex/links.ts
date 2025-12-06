@@ -29,6 +29,7 @@ export const create = mutation({
       favicon: args.favicon,
       status: "pending",
       createdAt: Date.now(),
+      isRead: false,
     });
   },
 });
@@ -109,6 +110,19 @@ export const updateProcessedContent = mutation({
   },
 });
 
+// Toggle read status
+export const toggleReadStatus = mutation({
+  args: {
+    linkId: v.id("links"),
+    isRead: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.linkId, {
+      isRead: args.isRead,
+    });
+  },
+});
+
 // Delete a link
 export const remove = mutation({
   args: { linkId: v.id("links") },
@@ -116,4 +130,3 @@ export const remove = mutation({
     await ctx.db.delete(args.linkId);
   },
 });
-

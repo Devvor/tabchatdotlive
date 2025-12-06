@@ -11,6 +11,7 @@ import {
 export interface UseConversationOptions {
   agentId?: string;
   systemPrompt?: string;
+  voiceSpeed?: number; // Speech rate multiplier (0.5-2.0, default: 1.0)
   onMessage?: (message: ConversationMessage) => void;
 }
 
@@ -50,6 +51,7 @@ export function useConversation(
     const config: ConversationConfig = {
       agentId: options.agentId,
       systemPrompt: options.systemPrompt,
+      voiceSpeed: options.voiceSpeed,
       onConnect: () => {
         setIsConnected(true);
         setIsConnecting(false);
@@ -86,7 +88,7 @@ export function useConversation(
       conversationRef.current = null;
       throw err;
     }
-  }, [options.agentId, options.systemPrompt, options.onMessage, isConnecting]);
+  }, [options.agentId, options.systemPrompt, options.voiceSpeed, options.onMessage, isConnecting]);
 
   const disconnect = useCallback(async () => {
     if (conversationRef.current) {
