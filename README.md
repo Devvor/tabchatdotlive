@@ -17,13 +17,12 @@ Introducing TabChat, simply one click save from your browser extension, then hav
 
 **[▶️ WATCH DEMO](https://youtube.com/shorts/XD0NYJOMEOA?feature=share)**
 
-> **Note:** Demo video includes all features as of October 5th, 2025
 
 ## Installation
 
 ### Install the Chrome Extension
 
-1. **Download the extension zip file**: [Download `chrome-mv3-prod.zip`](https://github.com/Devvor/tabchatdotlive/releases/latest/download/chrome-mv3-prod.zip) from the [latest release](https://github.com/Devvor/tabchatdotlive/releases/latest)
+1. **Download the extension zip file**: Download `chrome-mv3-prod.zip` from the [latest release](https://github.com/Devvor/tabchatdotlive/releases/latest)
 
 2. **Extract the zip file**: Unzip the downloaded file to a location on your computer
 
