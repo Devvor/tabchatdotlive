@@ -1,8 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "@learnor/convex";
-import { Id } from "@learnor/convex/_generated/dataModel";
+import { api, Id } from "@learnor/convex";
 import {
   Dialog,
   DialogContent,

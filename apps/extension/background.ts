@@ -160,4 +160,3 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 export {};
-

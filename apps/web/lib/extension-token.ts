@@ -7,11 +7,11 @@ const tokenStore = new Map<string, { clerkId: string; expiresAt: number }>();
 if (typeof setInterval !== "undefined") {
   setInterval(() => {
     const now = Date.now();
-    for (const [token, data] of tokenStore.entries()) {
+    tokenStore.forEach((data, token) => {
       if (data.expiresAt < now) {
         tokenStore.delete(token);
       }
-    }
+    });
   }, 5 * 60 * 1000);
 }
 

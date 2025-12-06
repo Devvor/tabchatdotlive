@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "convex/react";
-import { api } from "@learnor/convex";
-import { Doc } from "@learnor/convex/_generated/dataModel";
+import { api, Doc } from "@learnor/convex";
 import { formatDistanceToNow } from "date-fns";
 import { 
   MessageSquare, 
