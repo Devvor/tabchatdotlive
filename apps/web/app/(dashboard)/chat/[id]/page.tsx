@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -23,6 +23,11 @@ export default function ChatPage() {
     systemPrompt: string;
   } | null>(null);
 
+  // Memoize the onMessage callback to prevent unnecessary re-renders
+  const handleMessage = useCallback((message: { role: "user" | "assistant"; content: string; timestamp: number }) => {
+    console.log("Saving message:", message);
+  }, []);
+
   const {
     isConnected,
     isConnecting,
@@ -36,9 +41,7 @@ export default function ChatPage() {
     toggleMute,
   } = useConversation({
     systemPrompt: conversationData?.systemPrompt,
-    onMessage: (message) => {
-      console.log("Saving message:", message);
-    },
+    onMessage: handleMessage,
   });
 
   // Load conversation data

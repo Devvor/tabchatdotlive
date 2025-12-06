@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react";
@@ -29,6 +29,11 @@ export default function NewChatPage() {
   } | null>(null);
   const [systemPrompt, setSystemPrompt] = useState<string>("");
 
+  // Memoize the onMessage callback to prevent unnecessary re-renders
+  const handleMessage = useCallback((message: { role: "user" | "assistant"; content: string; timestamp: number }) => {
+    console.log("Message:", message);
+  }, []);
+
   const {
     isConnected,
     isConnecting,
@@ -42,19 +47,11 @@ export default function NewChatPage() {
     toggleMute,
   } = useConversation({
     systemPrompt,
-    onMessage: (message) => {
-      console.log("Message:", message);
-    },
+    onMessage: handleMessage,
   });
 
-  // Load content from URL if provided
-  useEffect(() => {
-    if (linkUrl && !topicContent) {
-      loadContent(linkUrl);
-    }
-  }, [linkUrl]);
-
-  const loadContent = async (url: string) => {
+  // Memoize loadContent to prevent unnecessary re-renders
+  const loadContent = useCallback(async (url: string) => {
     setIsLoading(true);
     try {
       const result = await scrapeUrl(url);
@@ -81,7 +78,14 @@ export default function NewChatPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // All dependencies (setIsLoading, scrapeUrl, setTopicContent, generateTeacherPrompt, setSystemPrompt, toast) are stable
+
+  // Load content from URL if provided
+  useEffect(() => {
+    if (linkUrl && !topicContent) {
+      loadContent(linkUrl);
+    }
+  }, [linkUrl, topicContent, loadContent]);
 
   const handleConnect = async () => {
     try {

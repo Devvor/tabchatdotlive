@@ -29,10 +29,15 @@ updateBadge();
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "SAVE_LINK") {
     // Handle save link from context menu or keyboard shortcut
-    handleSaveLink(message.data);
-    sendResponse({ success: true });
+    handleSaveLink(message.data).then(() => {
+      sendResponse({ success: true });
+    }).catch((error) => {
+      console.error("Failed to save link:", error);
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep message channel open for async response
   }
-  return true;
+  return false;
 });
 
 async function handleSaveLink(data: { url: string; title: string; favicon?: string }) {
@@ -64,15 +69,19 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Handle context menu clicks
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "save-to-learnor" && tab) {
     const url = info.linkUrl || info.pageUrl;
     if (url) {
-      handleSaveLink({
-        url,
-        title: tab.title || url,
-        favicon: tab.favIconUrl,
-      });
+      try {
+        await handleSaveLink({
+          url,
+          title: tab.title || url,
+          favicon: tab.favIconUrl,
+        });
+      } catch (error) {
+        console.error("Failed to save link from context menu:", error);
+      }
     }
   }
 });
@@ -80,13 +89,17 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // Keyboard shortcut handler
 chrome.commands.onCommand.addListener((command) => {
   if (command === "save-current-page") {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       if (tabs[0]?.url && tabs[0]?.title) {
-        handleSaveLink({
-          url: tabs[0].url,
-          title: tabs[0].title,
-          favicon: tabs[0].favIconUrl,
-        });
+        try {
+          await handleSaveLink({
+            url: tabs[0].url,
+            title: tabs[0].title,
+            favicon: tabs[0].favIconUrl,
+          });
+        } catch (error) {
+          console.error("Failed to save link from keyboard shortcut:", error);
+        }
       }
     });
   }
