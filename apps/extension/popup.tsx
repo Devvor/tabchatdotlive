@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import icon from "./assets/tabchat_logo.png";
 import { makeAuthenticatedRequest } from "~/lib/auth";
+import { getWebUrl } from "~/lib/config";
 import "./style.css";
 
 interface SavedLink {
@@ -77,7 +78,7 @@ function IndexPopup() {
 
     // Sync with Convex backend
     try {
-      const webUrl = process.env.PLASMO_PUBLIC_WEB_URL || "http://localhost:3000";
+      const webUrl = getWebUrl();
       console.log("=".repeat(50));
       console.log("[Popup] ===== SAVE LINK START =====");
       console.log("[Popup] Attempting to save link to:", `${webUrl}/api/links/save`);
@@ -125,7 +126,7 @@ function IndexPopup() {
         if (response.status === 401) {
           // User not authenticated - prompt to login
           setIsLoggedIn(false);
-          throw new Error(result.error || result.hint || "Please sign in to the web app first. Open http://localhost:3000 and sign in.");
+          throw new Error(result.error || result.hint || `Please sign in to the web app first. Open ${getWebUrl()} and sign in.`);
         }
         throw new Error(result.error || result.hint || `Failed to save link (${response.status})`);
       }
@@ -158,7 +159,7 @@ function IndexPopup() {
       );
       
       // Show error to user
-      const errorMsg = `Failed to save link: ${error.message}\n\nMake sure you're logged into ${process.env.PLASMO_PUBLIC_WEB_URL || "http://localhost:3000"}`;
+      const errorMsg = `Failed to save link: ${error.message}\n\nMake sure you're logged into ${getWebUrl()}`;
       console.error("[Popup] ===== SAVE LINK FAILED =====");
       console.error("[Popup] Error:", errorMsg);
       alert(errorMsg);
@@ -178,12 +179,12 @@ function IndexPopup() {
   };
 
   const openDashboard = () => {
-    chrome.tabs.create({ url: process.env.PLASMO_PUBLIC_WEB_URL || "http://localhost:3000" });
+    chrome.tabs.create({ url: getWebUrl() });
   };
 
   const openLogin = () => {
     chrome.tabs.create({
-      url: `${process.env.PLASMO_PUBLIC_WEB_URL || "http://localhost:3000"}/sign-in`,
+      url: `${getWebUrl()}/sign-in`,
     });
   };
 

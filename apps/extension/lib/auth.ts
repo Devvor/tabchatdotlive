@@ -4,6 +4,7 @@
  */
 
 import { Storage } from "@plasmohq/storage";
+import { getWebUrl } from "./config";
 
 const storage = new Storage();
 
@@ -13,7 +14,7 @@ interface TokenData {
 }
 
 async function findOrCreateWebAppTab(): Promise<number | null> {
-  const webUrl = process.env.PLASMO_PUBLIC_WEB_URL || 'http://localhost:3000';
+  const webUrl = getWebUrl();
   
   try {
     console.log(`[Auth] Looking for web app tab at ${webUrl}`);
@@ -90,7 +91,7 @@ async function sendMessageToWebApp(type: string, data?: any): Promise<any> {
         console.log(`[Auth] Tab URL: ${tab.url}, Status: ${tab.status}`);
         
         // Verify tab URL matches our web app
-        const webUrl = process.env.PLASMO_PUBLIC_WEB_URL || 'http://localhost:3000';
+        const webUrl = getWebUrl();
         if (!tab.url || !tab.url.startsWith(webUrl)) {
           const error = `Tab URL mismatch. Expected ${webUrl}*, got ${tab.url}`;
           console.error(`[Auth] ${error}`);
@@ -253,7 +254,7 @@ export async function makeAuthenticatedRequest(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const webUrl = process.env.PLASMO_PUBLIC_WEB_URL || 'http://localhost:3000';
+  const webUrl = getWebUrl();
   
   // Check if this is a request to our web app
   if (url.startsWith(webUrl)) {

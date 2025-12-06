@@ -1,5 +1,6 @@
 import { Storage } from "@plasmohq/storage";
 import { makeAuthenticatedRequest } from "./lib/auth";
+import { getWebUrl } from "./lib/config";
 
 const storage = new Storage();
 
@@ -61,7 +62,7 @@ async function handleSaveLink(data: { url: string; title: string; favicon?: stri
 
   // Sync with Convex backend
   try {
-    const webUrl = process.env.PLASMO_PUBLIC_WEB_URL || "http://localhost:3000";
+    const webUrl = getWebUrl();
     console.log("Background: Attempting to save link to:", `${webUrl}/api/links/save`);
     
     const response = await makeAuthenticatedRequest(`${webUrl}/api/links/save`, {
