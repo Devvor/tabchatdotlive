@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@learnor/convex";
+import { api } from "@tabchatdotlive/convex";
 import { formatDistanceToNow } from "date-fns";
 import { 
   MessageSquare, 

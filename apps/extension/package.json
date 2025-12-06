@@ -1,6 +1,6 @@
 {
   "name": "extension",
-  "displayName": "Learnor - AI Teacher",
+  "displayName": "TabChat - AI Teacher",
   "version": "0.0.1",
   "description": "Save any webpage and turn it into an AI teacher for voice learning",
   "private": true,

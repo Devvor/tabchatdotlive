@@ -1,4 +1,4 @@
-# Learnor - AI Teachers from Your Links
+# TabChat - AI Teachers from Your Links
 
 Turn any webpage into an AI teacher. Save links and learn through real-time voice conversations.
 
@@ -25,7 +25,7 @@ Turn any webpage into an AI teacher. Save links and learn through real-time voic
 ## Project Structure
 
 ```
-learnor/
+tabchatdotlive/
 ├── apps/
 │   ├── web/                    # Next.js web application
 │   │   ├── app/                # App router pages
@@ -59,8 +59,8 @@ learnor/
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/learnor.git
-cd learnor
+git clone https://github.com/yourusername/tabchatdotlive.git
+cd tabchatdotlive
 ```
 
 2. Install dependencies:

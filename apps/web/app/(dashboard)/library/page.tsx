@@ -3,9 +3,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
-import { api } from "@learnor/convex";
+import { api } from "@tabchatdotlive/convex";
 import Link from "next/link";
-import { Search, Plus, Library as LibraryIcon } from "lucide-react";
+import { Search, Library as LibraryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -124,13 +124,6 @@ export default function LibraryPage() {
             Your collection of endless tabs you said you were gonna read but you didn't.
           </p>
         </div>
-
-        <Button className="bg-black text-white hover:bg-gray-800 shadow-sm" asChild>
-          <Link href="/chat/new">
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Link
-          </Link>
-        </Button>
       </div>
 
       {/* Activity Calendar */}

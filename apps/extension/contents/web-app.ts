@@ -3,7 +3,7 @@
 
 export {};
 
-console.log("Learnor content script loaded");
+console.log("TabChat content script loaded");
 
 // Listen for messages from the extension
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

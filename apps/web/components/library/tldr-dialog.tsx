@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
-import { api, Id } from "@learnor/convex";
+import { api, Id } from "@tabchatdotlive/convex";
 import {
   Dialog,
   DialogContent,

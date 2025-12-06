@@ -116,15 +116,15 @@ async function handleSaveLink(data: { url: string; title: string; favicon?: stri
 // Create context menu item
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: "save-to-learnor",
-    title: "Save to Learnor",
+    id: "save-to-tabchat",
+    title: "Save to TabChat",
     contexts: ["page", "link"],
   });
 });
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === "save-to-learnor" && tab) {
+  if (info.menuItemId === "save-to-tabchat" && tab) {
     const url = info.linkUrl || info.pageUrl;
     if (url) {
       try {

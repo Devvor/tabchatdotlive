@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "@learnor/convex";
-import type { Id } from "@learnor/convex";
+import { api } from "@tabchatdotlive/convex";
+import type { Id } from "@tabchatdotlive/convex";
 import { 
   Tooltip, 
   TooltipContent, 
