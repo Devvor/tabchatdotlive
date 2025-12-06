@@ -1,6 +1,10 @@
 # TabChat - Chat with your tabs
 
-Turn any webpage into an AI teacher. Save links and learn through real-time voice conversations.
+## Problem Statement
+
+Chances are you have 30+ tabs left opened you wanted to read but just haven't done it. You could summarize it but even then it's still too long to read. It's great content but where do we find the best time and mental bandwidth to consume them.
+
+Introducing TabChat, simply one click save from your browser extension, then have a voice chat with it while you're on the move. And if you don't want a voice chat? Just hit TLDR and you get your fix.
 
 ## Features
 
@@ -10,49 +14,27 @@ Turn any webpage into an AI teacher. Save links and learn through real-time voic
 - 💬 **Conversation History** - Review and continue past learning sessions
 - 📱 **Mobile Optimized** - Learn on the go, even while driving
 
-## Tech Stack
-
-- **Monorepo**: Turborepo
-- **Browser Extension**: Plasmo (Manifest V3)
-- **Web App**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **UI Components**: shadcn/ui (Radix UI + Tailwind)
-- **Backend/Database**: Convex
-- **Authentication**: Clerk
-- **Content Scraping**: Firecrawl API
-- **Real-time Voice**: ElevenLabs Conversational AI
-- **Deployment**: Vercel
-
-## Project Structure
+## Installation
 
 ### Install the Chrome Extension
 
-1. **Download or clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/tabchatdotlive.git
-   cd tabchatdotlive
-   ```
+1. **Download the extension zip file**: Download `chrome-mv3-prod.zip` from the repository
 
-2. **Build the extension**:
-   ```bash
-   npm install
-   npm run build:extension
-   ```
+2. **Extract the zip file**: Unzip the downloaded file to a location on your computer
 
 3. **Load the extension in Chrome**:
    - Open Chrome and navigate to `chrome://extensions`
    - Enable "Developer mode" (toggle in the top right corner)
    - Click "Load unpacked"
-   - Select the folder: `apps/extension/build/chrome-mv3-prod`
+   - Select the extracted folder
 
 The TabChat extension is now installed and ready to use!
 
 ## How to use
 
 1. **Save a link**: Use the browser extension to save any webpage
-2. **Process content**: The app automatically extracts key information
-3. **Start learning**: Open the web app and start a voice conversation
-4. **Ask questions**: Speak naturally to your AI teacher about the topic
-5. **Review later**: Access conversation history to continue learning
+2. **Start learning**: Open the web app and start a voice conversation
+3. **Ask questions**: Speak naturally to your AI teacher about the topic
 
 ## Project Architecture
 
@@ -79,6 +61,18 @@ tabchatdotlive/
 - **Web App** (`apps/web`): Next.js application with shadcn/ui components and voice chat interface
 - **Extension** (`apps/extension`): Plasmo-based browser extension for saving links
 - **Convex** (`packages/convex`): Shared backend schema and functions
+
+## Tech Stack
+
+- **Monorepo**: Turborepo
+- **Browser Extension**: Plasmo (Manifest V3)
+- **Web App**: Next.js 14 (App Router), TypeScript, Tailwind CSS
+- **UI Components**: shadcn/ui (Radix UI + Tailwind)
+- **Backend/Database**: Convex
+- **Authentication**: Clerk
+- **Content Scraping**: Firecrawl API
+- **Real-time Voice**: ElevenLabs Conversational AI
+- **Deployment**: Vercel
 
 ## License
 
