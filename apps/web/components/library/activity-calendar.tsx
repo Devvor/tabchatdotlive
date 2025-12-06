@@ -166,7 +166,7 @@ export function ActivityCalendar({ userId }: ActivityCalendarProps) {
                               <TooltipTrigger asChild>
                                 <div
                                   className={cn(
-                                    "w-4 h-4 rounded-[3px] transition-colors cursor-sm",
+                                    "w-4 h-4 rounded-[3px] transition-colors cursor-pointer",
                                     day === null ? "bg-transparent" : getColor(day.count)
                                   )}
                                 />
