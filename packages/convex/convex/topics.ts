@@ -7,6 +7,7 @@ export const create = mutation({
     userId: v.id("users"),
     linkId: v.id("links"),
     name: v.string(),
+    description: v.optional(v.string()),
     summary: v.string(),
     keyPoints: v.array(v.string()),
   },
@@ -15,6 +16,7 @@ export const create = mutation({
       userId: args.userId,
       linkId: args.linkId,
       name: args.name,
+      description: args.description,
       summary: args.summary,
       keyPoints: args.keyPoints,
       createdAt: Date.now(),
@@ -62,6 +64,7 @@ export const update = mutation({
   args: {
     topicId: v.id("topics"),
     name: v.optional(v.string()),
+    description: v.optional(v.string()),
     summary: v.optional(v.string()),
     keyPoints: v.optional(v.array(v.string())),
   },

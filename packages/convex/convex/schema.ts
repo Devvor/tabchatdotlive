@@ -41,6 +41,7 @@ export default defineSchema({
     userId: v.id("users"),
     linkId: v.id("links"),
     name: v.string(),
+    description: v.optional(v.string()), // Concise one-liner epic point (max 7 words)
     summary: v.string(),
     keyPoints: v.array(v.string()),
     createdAt: v.number(),

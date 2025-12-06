@@ -24,28 +24,7 @@ export default function SignUpPage() {
             </div>
         </div>
 
-        <SignUp
-          appearance={{
-            layout: {
-                socialButtonsPlacement: "bottom",
-                socialButtonsVariant: "blockButton",
-            },
-            elements: {
-              rootBox: "w-full",
-              card: "bg-white border border-gray-200 shadow-sm rounded-2xl p-8",
-              headerTitle: "text-2xl font-bold text-gray-900 tracking-tight",
-              headerSubtitle: "text-gray-500",
-              formFieldLabel: "text-gray-700 font-medium",
-              formFieldInput:
-                "bg-white border-gray-200 text-gray-900 focus:border-black focus:ring-black/5 transition-all rounded-lg h-10",
-              footerActionLink: "text-black hover:text-gray-700 underline-offset-4 hover:underline",
-              socialButtonsBlockButton: "bg-white border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg h-10 transition-all",
-              dividerLine: "bg-gray-200",
-              dividerText: "text-gray-400",
-              formButtonPrimary: "bg-black hover:bg-gray-800 text-white h-10 rounded-lg transition-all",
-            },
-          }}
-        />
+        <SignUp />
       </div>
     </main>
   );

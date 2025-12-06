@@ -10,6 +10,7 @@ import {
   BookOpen,
   Trash2,
 } from "lucide-react";
+import icon from "./assets/tabchat_logo.png";
 import { makeAuthenticatedRequest } from "~/lib/auth";
 import "./style.css";
 
@@ -192,19 +193,11 @@ function IndexPopup() {
       <div className="p-4 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
+            <img src={icon} alt="Logo" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-lg text-foreground tracking-tight">
-              Learnor
+              Chat with your tabs
             </span>
           </div>
-          <button
-            onClick={openDashboard}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
-          >
-            Open App
-          </button>
         </div>
       </div>
 
@@ -263,7 +256,7 @@ function IndexPopup() {
               ) : (
                 <>
                   <Plus className="w-4 h-4" />
-                  Save to Learn
+                  Save to chat later
                 </>
               )}
             </button>
@@ -348,7 +341,7 @@ function IndexPopup() {
           className="w-full py-2.5 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground text-foreground font-medium text-sm transition-all flex items-center justify-center gap-2 shadow-sm"
         >
           <BookOpen className="w-4 h-4" />
-          Open Learning Dashboard
+          Open your library
         </button>
       </div>
     </div>

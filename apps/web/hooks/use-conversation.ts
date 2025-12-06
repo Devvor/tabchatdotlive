@@ -13,6 +13,9 @@ export interface UseConversationOptions {
   systemPrompt?: string;
   voiceSpeed?: number; // Speech rate multiplier (0.5-2.0, default: 1.0)
   onMessage?: (message: ConversationMessage) => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  onError?: (error: Error) => void;
 }
 
 export interface UseConversationReturn {
@@ -56,11 +59,13 @@ export function useConversation(
         setIsConnected(true);
         setIsConnecting(false);
         setMode("listening");
+        options.onConnect?.();
       },
       onDisconnect: () => {
         setIsConnected(false);
         setMode("idle");
         conversationRef.current = null;
+        options.onDisconnect?.();
       },
       onMessage: (message) => {
         setMessages((prev) => [...prev, message]);
@@ -69,6 +74,7 @@ export function useConversation(
       onError: (err) => {
         setError(err);
         setIsConnecting(false);
+        options.onError?.(err);
       },
       onModeChange: (newMode) => {
         setMode(newMode);
@@ -88,7 +94,7 @@ export function useConversation(
       conversationRef.current = null;
       throw err;
     }
-  }, [options.agentId, options.systemPrompt, options.voiceSpeed, options.onMessage, isConnecting]);
+  }, [options.agentId, options.systemPrompt, options.voiceSpeed, options.onMessage, options.onConnect, options.onDisconnect, options.onError, isConnecting]);
 
   const disconnect = useCallback(async () => {
     if (conversationRef.current) {

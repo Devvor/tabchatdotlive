@@ -2,17 +2,22 @@
 
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Mic, Loader2 } from "lucide-react";
 
 interface VoiceVisualizerProps {
   audioLevel: number;
   isActive: boolean;
   mode: "listening" | "speaking" | "idle";
+  onClick?: () => void;
+  isLoading?: boolean;
 }
 
 export function VoiceVisualizer({
   audioLevel,
   isActive,
   mode,
+  onClick,
+  isLoading,
 }: VoiceVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -23,6 +28,8 @@ export function VoiceVisualizer({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    let animationFrameId: number;
+
     const draw = () => {
       const width = canvas.width;
       const height = canvas.height;
@@ -32,11 +39,11 @@ export function VoiceVisualizer({
       ctx.clearRect(0, 0, width, height);
 
       if (!isActive) {
-        // Draw idle state - static circle
+        // Draw subtle idle ring
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 60, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(139, 92, 246, 0.3)";
-        ctx.lineWidth = 2;
+        ctx.arc(centerX, centerY, 45, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
+        ctx.lineWidth = 1;
         ctx.stroke();
         return;
       }
@@ -45,10 +52,9 @@ export function VoiceVisualizer({
       const numRings = 5;
       const baseRadius = 50;
       const maxExpand = 80;
-      const normalizedLevel = Math.min(audioLevel * 2, 1);
+      const normalizedLevel = Math.min(audioLevel * 2.5, 1); // Increased sensitivity
 
       for (let i = 0; i < numRings; i++) {
-        const delay = i * 0.15;
         const expandAmount = normalizedLevel * maxExpand * (1 - i * 0.15);
         const radius = baseRadius + expandAmount;
         const alpha = 0.6 - i * 0.1;
@@ -103,14 +109,18 @@ export function VoiceVisualizer({
       ctx.fillStyle = glowGradient;
       ctx.fill();
 
-      requestAnimationFrame(draw);
+      animationFrameId = requestAnimationFrame(draw);
     };
 
     draw();
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
   }, [audioLevel, isActive, mode]);
 
   return (
-    <div className="relative">
+    <div className="relative cursor-pointer group" onClick={onClick}>
       <canvas
         ref={canvasRef}
         width={300}
@@ -118,16 +128,35 @@ export function VoiceVisualizer({
         className="w-[300px] h-[300px]"
       />
       <AnimatePresence>
-        {isActive && (
+        {!isActive && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             className="absolute inset-0 flex items-center justify-center"
           >
+            <div className="w-20 h-20 rounded-full bg-black text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200">
+              {isLoading ? (
+                <Loader2 className="w-8 h-8 animate-spin" />
+              ) : (
+                <Mic className="w-8 h-8" />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isActive && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
             <div className="text-center">
-              <p className="text-sm font-medium text-zinc-300">
-                {mode === "speaking" ? "AI is speaking" : "Listening..."}
+              <p className="text-sm font-medium text-gray-500 bg-white/90 px-3 py-1 rounded-full shadow-sm border border-gray-100 backdrop-blur-sm">
+                {mode === "speaking" ? "AI Speaking" : "Listening..."}
               </p>
             </div>
           </motion.div>
@@ -172,4 +201,3 @@ export function WaveformBars({
     </div>
   );
 }
-

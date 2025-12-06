@@ -46,6 +46,31 @@ export const getByUser = query({
   },
 });
 
+// Get all links for a user with their topics
+export const getByUserWithTopics = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const links = await ctx.db
+      .query("links")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+    
+    // Fetch topics for each link
+    const linksWithTopics = await Promise.all(
+      links.map(async (link) => {
+        const topic = await ctx.db
+          .query("topics")
+          .withIndex("by_link", (q) => q.eq("linkId", link._id))
+          .first();
+        return { ...link, topic };
+      })
+    );
+    
+    return linksWithTopics;
+  },
+});
+
 // Get links by status
 export const getByUserAndStatus = query({
   args: {

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useMutation } from "convex/react";
-import { api, Doc } from "@learnor/convex";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@learnor/convex";
 import { formatDistanceToNow } from "date-fns";
 import { 
   MessageSquare, 
@@ -31,13 +31,21 @@ import { TLDRDialog } from "./tldr-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LinkCardProps {
-  link: Doc<"links">;
+  link: any; // Will be properly typed after Convex regenerates types
 }
 
 export function LinkCard({ link }: LinkCardProps) {
   const [tldrOpen, setTldrOpen] = useState(false);
   const toggleRead = useMutation(api.links.toggleReadStatus);
   const removeLink = useMutation(api.links.remove);
+  
+  // Get topic if not provided (fallback for backward compatibility)
+  const topic = useQuery(
+    api.topics.getByLink,
+    link.topic === undefined ? { linkId: link._id } : "skip"
+  );
+  
+  const displayTopic = link.topic || topic;
 
   const handleToggleRead = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -126,7 +134,7 @@ export function LinkCard({ link }: LinkCardProps) {
           </div>
 
           <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-            {link.description || "No description available."}
+            {displayTopic?.description || link.description || "No description available."}
           </p>
         </div>
 
@@ -161,25 +169,19 @@ export function LinkCard({ link }: LinkCardProps) {
               </Tooltip>
             </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    className="h-8 px-3 gap-1.5 font-normal text-xs"
-                    disabled={!isCompleted}
-                    onClick={() => setTldrOpen(true)}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    TLDR
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  View Summary & Key Points
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="h-8 px-3 gap-1.5 font-normal text-xs"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setTldrOpen(true);
+              }}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              TLDR
+            </Button>
 
             <Button 
               size="sm" 
@@ -196,14 +198,13 @@ export function LinkCard({ link }: LinkCardProps) {
         </div>
       </div>
 
-      {isCompleted && (
-        <TLDRDialog 
-          linkId={link._id} 
-          title={link.title} 
-          isOpen={tldrOpen} 
-          onOpenChange={setTldrOpen} 
-        />
-      )}
+      <TLDRDialog 
+        linkId={link._id} 
+        title={link.title}
+        url={link.url}
+        isOpen={tldrOpen} 
+        onOpenChange={setTldrOpen} 
+      />
     </>
   );
 }
