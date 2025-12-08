@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@tabchatdotlive/convex";
 import Link from "next/link";
-import { Search, Library as LibraryIcon } from "lucide-react";
+import { Search, Library as LibraryIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LinkCard } from "@/components/library/link-card";
 import { ActivityCalendar } from "@/components/library/activity-calendar";
+import { GachaReveal } from "@/components/library/gacha-reveal";
 
 // Type for topic data
 interface Topic {
@@ -44,6 +45,8 @@ interface LinkWithTopic {
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [gachaOpen, setGachaOpen] = useState(false);
+  const [selectedGachaLink, setSelectedGachaLink] = useState<LinkWithTopic | null>(null);
 
   // Get current user via Convex Auth
   const user = useQuery(api.users.currentUser);
@@ -54,6 +57,28 @@ export default function LibraryPage() {
     (api.links as any).getByUserWithTopics,
     user?._id ? { userId: user._id } : "skip"
   ) as LinkWithTopic[] | undefined;
+
+  // Calculate unread links
+  const unreadLinks = useMemo(() => {
+    if (!links) return [];
+    return links.filter((link) => !link.isRead);
+  }, [links]);
+
+  // Calculate unread count
+  const unreadCount = unreadLinks.length;
+
+  // Pick a random unread link
+  const pickRandomUnread = useCallback(() => {
+    if (unreadLinks.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * unreadLinks.length);
+    setSelectedGachaLink(unreadLinks[randomIndex]);
+  }, [unreadLinks]);
+
+  // Open gacha reveal
+  const handleSurpriseMe = useCallback(() => {
+    pickRandomUnread();
+    setGachaOpen(true);
+  }, [pickRandomUnread]);
 
   // Filter links
   const filteredLinks = useMemo(() => {
@@ -96,6 +121,14 @@ export default function LibraryPage() {
             Your collection of endless tabs you said you were gonna read but you didn't.
           </p>
         </div>
+        <Button
+          onClick={handleSurpriseMe}
+          disabled={unreadCount === 0}
+          className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-amber-500 hover:from-violet-700 hover:via-fuchsia-700 hover:to-amber-600 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
+        >
+          <Sparkles className="w-4 h-4 mr-2" />
+          Surprise Me
+        </Button>
       </div>
 
       {/* Activity Calendar */}
@@ -108,7 +141,14 @@ export default function LibraryPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all">All Items</TabsTrigger>
-            <TabsTrigger value="unread">Unread</TabsTrigger>
+            <TabsTrigger value="unread" className="flex items-center gap-2">
+              Unread
+              {unreadCount > 0 && (
+                <span className="h-5 min-w-5 px-1.5 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-semibold rounded-full">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="read">Read</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -176,6 +216,15 @@ export default function LibraryPage() {
           )}
         </div>
       )}
+
+      {/* Gacha Reveal */}
+      <GachaReveal
+        isOpen={gachaOpen}
+        onClose={() => setGachaOpen(false)}
+        unreadLinks={unreadLinks}
+        onSelectNew={pickRandomUnread}
+        selectedLink={selectedGachaLink}
+      />
     </div>
   );
 }

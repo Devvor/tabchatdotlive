@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Loader2 } from "lucide-react";
 
@@ -12,6 +12,9 @@ interface VoiceVisualizerProps {
   isLoading?: boolean;
 }
 
+// Track if we've already requested mic permission
+let micPermissionRequested = false;
+
 export function VoiceVisualizer({
   audioLevel,
   isActive,
@@ -20,6 +23,28 @@ export function VoiceVisualizer({
   isLoading,
 }: VoiceVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>(0);
+  const timeRef = useRef<number>(0);
+  const currentLevelRef = useRef<number>(0);
+
+  // Pre-warm microphone permission on hover to reduce latency when clicking
+  const handleHoverStart = useCallback(() => {
+    if (micPermissionRequested || isActive || isLoading) return;
+    
+    // Request microphone permission in the background
+    // This will either prompt the user (if not yet granted) or use cached permission
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        // Immediately stop the stream - we just wanted to trigger the permission
+        stream.getTracks().forEach(track => track.stop());
+        micPermissionRequested = true;
+        console.log("[MIC] Permission pre-warmed on hover");
+      })
+      .catch((err) => {
+        // User denied or error - that's fine, we'll handle it on actual click
+        console.log("[MIC] Pre-warm failed (will retry on click):", err.name);
+      });
+  }, [isActive, isLoading]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -28,137 +53,122 @@ export function VoiceVisualizer({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animationFrameId: number;
+    // Use high DPI canvas for sharpness
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
 
     const draw = () => {
-      const width = canvas.width;
-      const height = canvas.height;
-      const centerX = width / 2;
+      const width = rect.width;
+      const height = rect.height;
       const centerY = height / 2;
 
+      // Clear with transparent background
       ctx.clearRect(0, 0, width, height);
 
+      // Smoothly interpolate current level
+      currentLevelRef.current += (audioLevel - currentLevelRef.current) * 0.1;
+
       if (!isActive) {
-        // Draw subtle idle ring
+        // Draw subtle idle line
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 45, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
-        ctx.lineWidth = 1;
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.2)"; // Light slate color
+        ctx.lineWidth = 2;
         ctx.stroke();
+        animationRef.current = requestAnimationFrame(draw);
         return;
       }
 
-      // Draw animated rings based on audio level
-      const numRings = 5;
-      const baseRadius = 50;
-      const maxExpand = 80;
-      const normalizedLevel = Math.min(audioLevel * 2.5, 1); // Increased sensitivity
+      // Increment time for animation
+      timeRef.current += 0.08;
 
-      for (let i = 0; i < numRings; i++) {
-        const expandAmount = normalizedLevel * maxExpand * (1 - i * 0.15);
-        const radius = baseRadius + expandAmount;
-        const alpha = 0.6 - i * 0.1;
+      // Use interpolated level for smoothness
+      const normalizedLevel = Math.min(Math.max(currentLevelRef.current * 1.5, 0.1), 1);
+      const baseAmplitude = 20 + normalizedLevel * 50;
 
+      // Define wave configurations with light theme colors
+      const waves = [
+        { amplitude: baseAmplitude * 1.0, frequency: 0.008, speed: 0.8, alpha: 0.8, color: "59, 130, 246" },
+        { amplitude: baseAmplitude * 0.8, frequency: 0.012, speed: 1.0, alpha: 0.5, color: "99, 102, 241" },
+        { amplitude: baseAmplitude * 0.6, frequency: 0.015, speed: 1.2, alpha: 0.3, color: "147, 197, 253" },
+        { amplitude: baseAmplitude * 0.4, frequency: 0.02, speed: 1.5, alpha: 0.2, color: "139, 92, 246" },
+      ];
+
+      // Draw each wave
+      waves.forEach((wave) => {
         ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.moveTo(0, centerY);
 
-        const gradient = ctx.createRadialGradient(
-          centerX,
-          centerY,
-          radius - 10,
-          centerX,
-          centerY,
-          radius + 10
-        );
+        for (let x = 0; x <= width; x++) {
+          const phase = timeRef.current * wave.speed;
+          const y = centerY + 
+            Math.sin(x * wave.frequency + phase) * wave.amplitude * Math.sin(timeRef.current * 0.1 + x * 0.001);
 
-        if (mode === "speaking") {
-          gradient.addColorStop(0, `rgba(139, 92, 246, ${alpha})`);
-          gradient.addColorStop(1, `rgba(99, 102, 241, ${alpha * 0.5})`);
-        } else {
-          gradient.addColorStop(0, `rgba(34, 197, 94, ${alpha})`);
-          gradient.addColorStop(1, `rgba(16, 185, 129, ${alpha * 0.5})`);
+          ctx.lineTo(x, y);
         }
 
+        const gradient = ctx.createLinearGradient(0, centerY - wave.amplitude, 0, centerY + wave.amplitude);
+        gradient.addColorStop(0, `rgba(${wave.color}, 0)`);
+        gradient.addColorStop(0.5, `rgba(${wave.color}, ${wave.alpha})`);
+        gradient.addColorStop(1, `rgba(${wave.color}, 0)`);
+
         ctx.strokeStyle = gradient;
-        ctx.lineWidth = 3 - i * 0.4;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
         ctx.stroke();
-      }
+      });
 
-      // Draw center glow
-      const glowGradient = ctx.createRadialGradient(
-        centerX,
-        centerY,
-        0,
-        centerX,
-        centerY,
-        baseRadius
-      );
-
-      if (mode === "speaking") {
-        glowGradient.addColorStop(0, "rgba(139, 92, 246, 0.4)");
-        glowGradient.addColorStop(0.5, "rgba(139, 92, 246, 0.1)");
-        glowGradient.addColorStop(1, "rgba(139, 92, 246, 0)");
-      } else {
-        glowGradient.addColorStop(0, "rgba(34, 197, 94, 0.4)");
-        glowGradient.addColorStop(0.5, "rgba(34, 197, 94, 0.1)");
-        glowGradient.addColorStop(1, "rgba(34, 197, 94, 0)");
-      }
-
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
-      ctx.fillStyle = glowGradient;
-      ctx.fill();
-
-      animationFrameId = requestAnimationFrame(draw);
+      animationRef.current = requestAnimationFrame(draw);
     };
 
     draw();
 
     return () => {
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
   }, [audioLevel, isActive, mode]);
 
   return (
-    <div className="relative cursor-pointer group" onClick={onClick}>
-      <canvas
-        ref={canvasRef}
-        width={300}
-        height={300}
-        className="w-[300px] h-[300px]"
-      />
-      <AnimatePresence>
+    <div className="relative flex flex-col items-center w-full">
+      {/* Wave visualization area */}
+      <div className="w-full h-40 flex items-center justify-center">
+        <canvas
+          ref={canvasRef}
+          style={{ width: "100%", height: "100%" }}
+          className="w-full h-full"
+        />
+      </div>
+
+      {/* Mic button */}
+      <AnimatePresence mode="wait">
         {!isActive && (
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute inset-0 flex items-center justify-center"
+            transition={{ duration: 0.2 }}
+            className="mt-6"
           >
-            <div className="w-20 h-20 rounded-full bg-black text-white flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200">
+            <button
+              onClick={onClick}
+              onMouseEnter={handleHoverStart}
+              onTouchStart={handleHoverStart}
+              disabled={isLoading && !onClick}
+              className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl shadow-blue-200 hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
               {isLoading ? (
-                <Loader2 className="w-8 h-8 animate-spin" />
+                <Loader2 className="w-7 h-7 animate-spin" />
               ) : (
-                <Mic className="w-8 h-8" />
+                <Mic className="w-7 h-7" />
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isActive && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          >
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-500 bg-white/90 px-3 py-1 rounded-full shadow-sm border border-gray-100 backdrop-blur-sm">
-                {mode === "speaking" ? "AI Speaking" : "Listening..."}
-              </p>
-            </div>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -176,11 +186,10 @@ export function WaveformBars({
   barCount?: number;
 }) {
   const bars = Array.from({ length: barCount }, (_, i) => {
-    const delay = i * 0.1;
     const height = isActive
       ? 10 + audioLevel * 30 * Math.sin((Date.now() / 200 + i) % Math.PI)
       : 10;
-    return { delay, height };
+    return { height };
   });
 
   return (
@@ -188,7 +197,7 @@ export function WaveformBars({
       {bars.map((bar, i) => (
         <motion.div
           key={i}
-          className="w-1 rounded-full bg-gradient-to-t from-violet-600 to-indigo-400"
+          className="w-1 rounded-full bg-gradient-to-t from-blue-600 to-blue-400"
           animate={{
             height: isActive ? `${bar.height}px` : "10px",
           }}

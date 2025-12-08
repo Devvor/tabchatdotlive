@@ -29,10 +29,10 @@
   "dependencies": {
     "@auth/core": "0.37.0",
     "@convex-dev/auth": "^0.0.80",
-    "convex": "^1.17.0"
+    "convex": "^1.17.0",
+    "openai": "^6.10.0"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
   }
 }
-

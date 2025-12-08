@@ -8,6 +8,7 @@ export interface UseConversationOptions extends UseVapiConversationOptions {}
 export interface UseConversationReturn extends Omit<UseVapiConversationReturn, "mode"> {
   mode: VapiMode;
   audioLevel: number;
+  isVapiReady: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ export function useConversation(
     disconnect,
     toggleMute,
     clearMessages,
+    isVapiReady,
   } = useVapiConversation(options);
 
   return {
@@ -42,6 +44,7 @@ export function useConversation(
     disconnect,
     toggleMute,
     clearMessages,
+    isVapiReady,
   };
 }
 

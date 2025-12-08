@@ -31,12 +31,26 @@ export interface VapiConfig {
     recordingEnabled?: boolean;
     variableValues?: Record<string, any>;
   };
+  vapiInstance?: Vapi; // Pre-initialized Vapi SDK instance for faster connections
   onConnect?: () => void;
   onDisconnect?: () => void;
   onMessage?: (message: VapiMessage) => void;
   onError?: (error: Error) => void;
   onModeChange?: (mode: VapiMode) => void;
   onVolumeLevel?: (level: number) => void;
+}
+
+// Module-level singleton for Vapi SDK pre-initialization
+let sharedVapiInstance: Vapi | null = null;
+
+/**
+ * Get or create a shared Vapi SDK instance for faster connections
+ */
+export function getSharedVapiInstance(publicKey: string): Vapi {
+  if (!sharedVapiInstance) {
+    sharedVapiInstance = new Vapi(publicKey);
+  }
+  return sharedVapiInstance;
 }
 
 export interface VapiStatus {
@@ -108,8 +122,8 @@ export class VapiConversation {
         // Reset disconnect tracking for new connection
         this.disconnectHandled = false;
         
-        // Initialize Vapi with public key
-        this.vapi = new Vapi(this.config.publicKey);
+        // Use pre-initialized instance if provided, otherwise use shared singleton
+        this.vapi = this.config.vapiInstance || getSharedVapiInstance(this.config.publicKey);
 
         let callStarted = false;
         let startError: Error | null = null;
@@ -137,7 +151,12 @@ export class VapiConversation {
           this.status.isConnected = false;
           this.status.mode = "idle";
           this.status.audioLevel = 0;
-          this.config.onDisconnect?.();
+          
+          // Only call onDisconnect if not already handled by manual disconnect
+          if (!this.disconnectHandled) {
+            this.disconnectHandled = true;
+            this.config.onDisconnect?.();
+          }
         });
 
         this.vapi.on("speech-start", () => {
@@ -396,17 +415,49 @@ export class VapiConversation {
   }
 
   async disconnect(): Promise<void> {
+    console.log("VapiConversation.disconnect() called, isConnected:", this.status.isConnected);
+    
     if (this.vapi) {
+      // Mark disconnect as handled to prevent duplicate callbacks
+      this.disconnectHandled = true;
+      
+      const vapiInstance = this.vapi;
+      
+      // Update status immediately
+      const wasConnected = this.status.isConnected;
+      this.status.isConnected = false;
+      this.status.mode = "idle";
+      this.status.audioLevel = 0;
+      
       try {
-        this.vapi.stop();
+        console.log("Calling vapi.stop()...");
+        vapiInstance.stop();
+        console.log("vapi.stop() called successfully");
       } catch (error) {
         console.error("Error stopping Vapi:", error);
       }
+      
+      // Clear the reference after stop
       this.vapi = null;
+      
+      // Notify disconnect callback if we were connected
+      if (wasConnected) {
+        console.log("Calling onDisconnect callback");
+        this.config.onDisconnect?.();
+      }
+    } else {
+      console.log("disconnect() called but vapi is null");
+      
+      // Update status anyway
+      const wasConnected = this.status.isConnected;
+      this.status.isConnected = false;
+      this.status.mode = "idle";
+      this.status.audioLevel = 0;
+      
+      if (wasConnected) {
+        this.config.onDisconnect?.();
+      }
     }
-
-    this.status.isConnected = false;
-    this.status.mode = "idle";
   }
 }
 

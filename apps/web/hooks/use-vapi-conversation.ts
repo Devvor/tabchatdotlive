@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import Vapi from "@vapi-ai/web";
 import {
   VapiConversation,
   VapiMessage,
@@ -30,7 +31,11 @@ export interface UseVapiConversationReturn {
   disconnect: () => void;
   toggleMute: () => void;
   clearMessages: () => void;
+  isVapiReady: boolean; // New: indicates if VAPI SDK is pre-initialized
 }
+
+// Module-level singleton for pre-initialized Vapi SDK
+let preInitializedVapi: Vapi | null = null;
 
 export function useVapiConversation(
   options: UseVapiConversationOptions = {}
@@ -42,9 +47,25 @@ export function useVapiConversation(
   const [messages, setMessages] = useState<VapiMessage[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [isVapiReady, setIsVapiReady] = useState(!!preInitializedVapi);
 
   const conversationRef = useRef<VapiConversation | null>(null);
   const processedMessagesRef = useRef<Set<string>>(new Set());
+  const vapiInstanceRef = useRef<Vapi | null>(preInitializedVapi);
+
+  // Pre-initialize VAPI SDK on mount for faster connections
+  useEffect(() => {
+    const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+    if (publicKey && !vapiInstanceRef.current) {
+      console.log("[VAPI] Pre-initializing SDK...");
+      vapiInstanceRef.current = new Vapi(publicKey);
+      preInitializedVapi = vapiInstanceRef.current;
+      setIsVapiReady(true);
+      console.log("[VAPI] SDK pre-initialized and ready");
+    } else if (vapiInstanceRef.current) {
+      setIsVapiReady(true);
+    }
+  }, []);
 
   const connect = useCallback(async () => {
     if (conversationRef.current || isConnecting) return;
@@ -61,8 +82,16 @@ export function useVapiConversation(
       throw err;
     }
 
+    // Ensure Vapi instance is ready (should already be pre-initialized)
+    if (!vapiInstanceRef.current) {
+      console.log("[VAPI] Creating instance on-demand (was not pre-initialized)");
+      vapiInstanceRef.current = new Vapi(publicKey);
+      preInitializedVapi = vapiInstanceRef.current;
+    }
+
     const config: VapiConfig = {
       publicKey,
+      vapiInstance: vapiInstanceRef.current, // Use pre-initialized instance
       assistantId: options.assistantId || process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID,
       assistantOverrides: options.systemPrompt
         ? {
@@ -95,9 +124,12 @@ export function useVapiConversation(
         options.onConnect?.();
       },
       onDisconnect: () => {
+        console.log("onDisconnect callback fired");
         setIsConnected(false);
+        setIsConnecting(false);
         setMode("idle");
-        conversationRef.current = null;
+        setAudioLevel(0);
+        // Note: conversationRef is cleared in the disconnect() function
         options.onDisconnect?.();
       },
       onMessage: (message) => {
@@ -144,9 +176,15 @@ export function useVapiConversation(
   ]);
 
   const disconnect = useCallback(async () => {
+    console.log("useVapiConversation.disconnect() called, ref exists:", !!conversationRef.current);
     if (conversationRef.current) {
-      await conversationRef.current.disconnect();
+      const ref = conversationRef.current;
+      // Clear ref first to prevent double-disconnect
       conversationRef.current = null;
+      await ref.disconnect();
+      console.log("useVapiConversation.disconnect() completed");
+    } else {
+      console.log("useVapiConversation.disconnect() - no conversation ref");
     }
   }, []);
 
@@ -193,6 +231,7 @@ export function useVapiConversation(
     disconnect,
     toggleMute,
     clearMessages,
+    isVapiReady,
   };
 }
 

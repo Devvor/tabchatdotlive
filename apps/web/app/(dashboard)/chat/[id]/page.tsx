@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api, Id } from "@tabchatdotlive/convex";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useVapiConversation } from "@/hooks/use-vapi-conversation";
+import { useConversation } from "@/hooks/use-conversation";
 import { VoiceVisualizer } from "@/components/voice-chat/voice-visualizer";
-import { ChatMessages } from "@/components/voice-chat/chat-messages";
 import { VoiceControls } from "@/components/voice-chat/voice-controls";
+import { LinkCarousel } from "@/components/voice-chat/link-carousel";
 import { generateTeacherPrompt, generateFirstMessageHook } from "@/lib/vapi";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,52 +18,110 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function ChatPage() {
   const params = useParams();
-  const conversationId = params.id as string;
+  const router = useRouter();
+  const initialConversationId = params.id as string;
 
-  // Get current user via Convex Auth
+  // === LOCAL STATE FOR IN-PAGE SWIPE (no navigation) ===
+  const [currentLinkId, setCurrentLinkId] = useState<Id<"links"> | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string>(initialConversationId);
+  const hasInitialized = useRef(false);
+
+  // Convex hooks
   const user = useQuery(api.users.currentUser);
-
-  const [systemPrompt, setSystemPrompt] = useState<string>("");
-
-  // Get conversation from Convex
   const conversation = useQuery(
     api.conversations.getWithMessages,
-    conversationId ? { conversationId: conversationId as Id<"conversations"> } : "skip"
+    currentConversationId ? { conversationId: currentConversationId as Id<"conversations"> } : "skip"
   );
-
-  // Get topic if conversation has one
+  
+  // Resolve link content from initial conversation
   const topic = useQuery(
     api.topics.getWithLink,
     conversation?.topicId ? { topicId: conversation.topicId } : "skip"
   );
+  const urlLinkId = conversation?.linkId || topic?.linkId;
 
-  // Get link - either from conversation directly or via topic
-  const linkId = conversation?.linkId || topic?.linkId;
-  const link = useQuery(
-    api.links.getById,
-    linkId ? { linkId } : "skip"
-  );
+  // Get all links for carousel (unread + current)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allLinks = useQuery((api.links as any).getByUserWithTopics, user?._id ? { userId: user._id } : "skip");
+  
+  // Get all active conversations to map links to conversations
+  const activeConversations = useQuery(api.conversations.getActiveByUser, user?._id ? { userId: user._id } : "skip");
 
-  // Mutation to save messages
   const addMessage = useMutation(api.conversations.addMessage);
+  const createConversation = useMutation(api.conversations.create);
 
-  // Build system prompt when link content is available
+  // Carousel State
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Filter links for carousel - use currentLinkId for filtering (not urlLinkId)
+  const activeLinkId = currentLinkId || urlLinkId;
+  const carouselLinks = useMemo(() => {
+    if (!allLinks) return [];
+    // We want unread links OR the current link (even if read)
+    const relevant = allLinks.filter((l: any) => !l.isRead || l._id === activeLinkId);
+    
+    // Keep temporal order (newest first)
+    return relevant.map((l: any) => ({
+      id: l._id,
+      title: l.title,
+      ...l
+    }));
+  }, [allLinks, activeLinkId]);
+
+  // === PREFETCH ADJACENT CAROUSEL ITEMS ===
+  const nextLinkId = carouselLinks[selectedIndex + 1]?.id;
+  const prevLinkId = carouselLinks[selectedIndex - 1]?.id;
+  
+  // Prefetch next/prev links (Convex will cache these)
+  useQuery(api.links.getById, nextLinkId ? { linkId: nextLinkId } : "skip");
+  useQuery(api.links.getById, prevLinkId ? { linkId: prevLinkId } : "skip");
+
+  // Get the CURRENT link's data (from carousel or direct query)
+  const directLinkQuery = useQuery(
+    api.links.getById,
+    activeLinkId ? { linkId: activeLinkId } : "skip"
+  );
+  
+  // Use carousel data when available, fall back to direct query
+  const activeLink = carouselLinks[selectedIndex];
+  const link = activeLink?.processedContent ? activeLink : directLinkQuery;
+
+  // Initialize currentLinkId from URL on first load
+  useEffect(() => {
+    if (!hasInitialized.current && urlLinkId && !currentLinkId) {
+      setCurrentLinkId(urlLinkId);
+      hasInitialized.current = true;
+    }
+  }, [urlLinkId, currentLinkId]);
+
+  // Sync selected index when currentLinkId changes
+  useEffect(() => {
+    if (carouselLinks.length > 0 && activeLinkId) {
+      const index = carouselLinks.findIndex((l: any) => l.id === activeLinkId);
+      if (index !== -1 && index !== selectedIndex) {
+        setSelectedIndex(index);
+      }
+    }
+  }, [carouselLinks.length, activeLinkId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Local state for system prompt
+  const [systemPrompt, setSystemPrompt] = useState<string>("");
+
+  // Setup system prompt when link content is available
   useEffect(() => {
     if (link?.processedContent) {
       const prompt = generateTeacherPrompt(link.processedContent);
       setSystemPrompt(prompt);
     }
-    // No fallback - if no link content, systemPrompt stays empty
-  }, [link, conversation]);
+  }, [link?.processedContent]);
 
-  // Handle saving messages to Convex
+  // Handle message saving - use currentConversationId
   const handleMessage = useCallback(
     async (message: { role: "user" | "assistant"; content: string; timestamp: number }) => {
-      console.log("Saving message:", message);
-      if (conversationId) {
+      if (currentConversationId) {
         try {
           await addMessage({
-            conversationId: conversationId as Id<"conversations">,
+            conversationId: currentConversationId as Id<"conversations">,
             role: message.role,
             content: message.content,
           });
@@ -72,10 +130,10 @@ export default function ChatPage() {
         }
       }
     },
-    [conversationId, addMessage]
+    [currentConversationId, addMessage]
   );
 
-  // Use Vapi conversation hook
+  // Initialize conversation
   const {
     isConnected,
     isConnecting,
@@ -87,7 +145,8 @@ export default function ChatPage() {
     connect,
     disconnect,
     toggleMute,
-  } = useVapiConversation({
+    isVapiReady,
+  } = useConversation({
     systemPrompt,
     firstMessage: link?.title
       ? generateFirstMessageHook(link.title)
@@ -95,64 +154,117 @@ export default function ChatPage() {
     onMessage: handleMessage,
   });
 
-  const isLoading = conversation === undefined || user === undefined;
-  const conversationTitle = conversation?.title || "Conversation";
+  // Handle errors
+  useEffect(() => {
+    if (error) toast.error(error.message);
+  }, [error]);
 
-  // Show not found state
-  if (conversation === null && user !== null && !isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center p-6">
-        <div className="text-center max-w-sm">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Conversation Not Found</h2>
-          <p className="text-gray-500 mb-6">
-            This session may have been deleted or you do not have permission to view it.
-          </p>
-          <Button asChild variant="outline">
-            <Link href="/library">Return to Library</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // Check if we can start a call
+  const canStartCall = !!systemPrompt && !!link?.processedContent && isVapiReady;
 
   const handleConnect = async () => {
-    if (!systemPrompt) {
-      toast.error("No article content available for this conversation.");
+    if (!canStartCall) {
+      toast.error("Content is still loading. Please wait a moment.");
       return;
     }
     try {
       await connect();
     } catch (error) {
-      toast.error("Failed to connect. Please try again.");
+      toast.error("Failed to connect.");
     }
   };
 
-  // Show errors
-  useEffect(() => {
-    if (error) {
-      toast.error(error.message);
+  const handleClose = () => {
+    if (isConnected) {
+      disconnect();
     }
-  }, [error]);
+    router.push("/library");
+  };
 
-  if (isLoading) {
+  // === IN-PAGE SWIPE HANDLER (no router.push!) ===
+  const handleSwipe = async (index: number) => {
+    setSelectedIndex(index);
+    if (isConnected) {
+      disconnect();
+    }
+
+    const targetLink = carouselLinks[index];
+    if (!targetLink || !user) return;
+
+    // Update local state immediately (no navigation!)
+    setCurrentLinkId(targetLink.id as Id<"links">);
+    
+    // Clear system prompt so it regenerates for new link
+    setSystemPrompt("");
+
+    // Find or create conversation for this link
+    const existingConv = activeConversations?.find(
+      (c) => c.linkId === targetLink.id
+    );
+
+    if (existingConv) {
+      // Just update local state - no navigation
+      setCurrentConversationId(existingConv._id);
+    } else {
+      // Create new conversation in background
+      try {
+        const newConvId = await createConversation({
+          userId: user._id as Id<"users">,
+          linkId: targetLink.id as Id<"links">,
+          title: targetLink.title,
+        });
+        setCurrentConversationId(newConvId);
+      } catch (err) {
+        console.error("Failed to create conversation:", err);
+        toast.error("Failed to start conversation");
+      }
+    }
+  };
+
+  // === GRANULAR LOADING STATES (don't block entire UI) ===
+  const isUserLoading = user === undefined;
+  const isCarouselReady = carouselLinks.length > 0;
+  const isLinkContentLoading = !link?.processedContent && !!activeLinkId;
+  
+  // Only show full-page loader if we have no carousel data at all
+  const showFullPageLoader = isUserLoading && !isCarouselReady;
+  
+  // Display logic
+  const isCurrentLink = activeLink && activeLink.id === activeLinkId;
+  const conversationTitle = activeLink?.title || conversation?.title || topic?.name || "Conversation";
+  
+  // Get subtitle (source URL or description)
+  const getSubtitle = () => {
+    if (!activeLink) return null;
+    if (activeLink.url) {
+      try {
+        return new URL(activeLink.url).hostname.replace('www.', '');
+      } catch {
+        return activeLink.url;
+      }
+    }
+    return activeLink.description || null;
+  };
+  const subtitle = getSubtitle();
+
+  // Only show full-page loader when absolutely necessary (no carousel data yet)
+  if (showFullPageLoader) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-50/50 backdrop-blur-sm z-50">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
       </div>
     );
   }
 
-  // Show error state if conversation exists but no article content is available
-  if (conversation && !link?.processedContent && !isLoading) {
+  // If we have carousel items, use them. If not (and conv failed), show error.
+  if (!isCarouselReady && conversation === null && !isUserLoading) {
     return (
-      <div className="h-full flex items-center justify-center p-6">
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-50/50 p-6">
         <div className="text-center max-w-sm">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">No Article Content Available</h2>
-          <p className="text-gray-500 mb-6">
-            This conversation doesn't have any article content associated with it. Please start a new conversation with an article from your library.
-          </p>
-          <Button asChild variant="outline">
-            <Link href="/library">Go to Library</Link>
+          <AlertCircle className="w-10 h-10 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Conversation Not Found</h2>
+          <Button asChild variant="outline" className="text-gray-600 hover:text-gray-900">
+            <Link href="/library">Return to Library</Link>
           </Button>
         </div>
       </div>
@@ -161,96 +273,124 @@ export default function ChatPage() {
 
   return (
     <TooltipProvider>
-      <div className="h-[calc(100vh-4rem)] flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Header */}
-        <header className="flex-shrink-0 px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-900" asChild>
-              <Link href="/library">
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="font-semibold text-gray-900">
-                {conversationTitle}
-              </h1>
-              {isConnected && (
-                <span className="text-xs font-medium text-green-600 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse" />
-                  Connected
-                </span>
-              )}
-            </div>
-          </div>
-        </header>
+      {/* Full screen backdrop with blur */}
+      <div className="fixed inset-0 bg-white/60 backdrop-blur-md flex flex-col items-center justify-center p-4 z-50 transition-all duration-500">
+        
+        {/* Background glow effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-30"
+            style={{
+              background: "radial-gradient(circle at center, rgba(59, 130, 246, 0.15) 0%, transparent 70%)",
+            }}
+          />
+        </div>
 
-        {/* Messages area */}
-        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6">
-            {messages.length > 0 ? (
-              <div className="max-w-3xl mx-auto">
-                <ChatMessages messages={messages} />
+        {/* Back button - positioned above modal */}
+        <motion.button
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          onClick={handleClose}
+          className="relative mb-4 w-10 h-10 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 flex items-center justify-center transition-all duration-200 backdrop-blur-sm shadow-lg hover:shadow-xl border border-gray-200/50 z-30"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </motion.button>
+
+        {/* Carousel Container */}
+        <div className="w-full h-full flex items-center justify-center">
+          <LinkCarousel
+            items={carouselLinks}
+            selectedIndex={selectedIndex}
+            onChange={handleSwipe}
+            className="max-w-md w-full"
+          >
+            {/* Content */}
+            <div className="relative z-10 px-8 py-10 flex flex-col min-h-[500px] h-full">
+              
+              {/* Title and Subtitle */}
+              <div className="text-center mb-10 px-4">
+                <h1 className="text-xl font-semibold text-gray-900 line-clamp-2 leading-tight tracking-tight mb-2">
+                  {conversationTitle}
+                </h1>
+                {subtitle && (
+                  <p className="text-sm text-gray-500 font-medium truncate">
+                    {subtitle}
+                  </p>
+                )}
               </div>
-            ) : (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center px-6 max-w-sm">
-                  <div className="mb-8 flex justify-center">
-                    <div className="w-32 h-32 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center">
-                      <VoiceVisualizer
-                        audioLevel={audioLevel}
-                        isActive={isConnected}
-                        mode={mode}
-                      />
-                    </div>
-                  </div>
 
-                  <AnimatePresence mode="wait">
-                    {!isConnected && !isConnecting && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                      >
-                        <h2 className="text-lg font-semibold text-gray-900 mb-1">Ready to Learn</h2>
-                        <p className="text-sm text-gray-500">Click the microphone to start your voice conversation.</p>
-                      </motion.div>
-                    )}
-                    {isConnecting && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                      >
-                        <p className="text-sm font-medium text-gray-500">Connecting...</p>
-                      </motion.div>
-                    )}
-                    {isConnected && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                      >
-                        <p className="text-sm font-medium text-gray-900 uppercase tracking-wide animate-pulse">
-                          {mode === "speaking" ? "AI Speaking..." : "Listening..."}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+              {/* Main content area */}
+              <div className="flex-1 flex flex-col items-center justify-center -mt-6">
+                
+                {/* Visualizer */}
+                <div className="w-full mb-8">
+                  <VoiceVisualizer
+                    audioLevel={isCurrentLink ? audioLevel : 0}
+                    isActive={isCurrentLink ? isConnected : false}
+                    mode={isCurrentLink ? mode : "idle"}
+                    onClick={(!isConnected && !isConnecting && canStartCall) ? handleConnect : undefined}
+                    isLoading={isConnecting || isLinkContentLoading}
+                  />
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Controls */}
-          <div className="flex-shrink-0 bg-white border-t border-gray-200 p-6">
-            <div className="max-w-3xl mx-auto flex justify-center">
-              <VoiceControls
-                isConnected={isConnected}
-                isConnecting={isConnecting}
-                isMuted={isMuted}
-                onConnect={handleConnect}
-                onDisconnect={disconnect}
-                onToggleMute={toggleMute}
-              />
+                {/* Status text / Controls */}
+                <AnimatePresence mode="wait">
+                  {!isConnected && !isConnecting && (
+                    <motion.div
+                      key="idle"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-center"
+                    >
+                      <p className="text-sm font-medium text-gray-400">
+                        {isLinkContentLoading 
+                          ? "Loading content..." 
+                          : !canStartCall 
+                          ? "Preparing..." 
+                          : "Tap to start conversation"}
+                      </p>
+                    </motion.div>
+                  )}
+                  
+                  {isConnecting && isCurrentLink && (
+                    <motion.div
+                      key="connecting"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-center"
+                    >
+                      <p className="text-sm font-medium text-blue-500">Connecting...</p>
+                    </motion.div>
+                  )}
+                  
+                  {isConnected && isCurrentLink && (
+                    <motion.div
+                      key="connected"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="mt-2"
+                    >
+                      <VoiceControls
+                        isConnected={isConnected}
+                        isConnecting={isConnecting}
+                        isMuted={isMuted}
+                        onConnect={handleConnect}
+                        onDisconnect={handleClose}
+                        onToggleMute={toggleMute}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
             </div>
-          </div>
+          </LinkCarousel>
         </div>
       </div>
     </TooltipProvider>
