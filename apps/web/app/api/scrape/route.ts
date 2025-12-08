@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 
 const FIRECRAWL_API_URL = "https://api.firecrawl.dev/v1/scrape";
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const token = await convexAuthNextjsToken();
 
-    if (!userId) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

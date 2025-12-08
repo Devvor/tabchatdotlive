@@ -2,29 +2,28 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
-  ElevenLabsConversation,
-  ConversationMessage,
-  ConversationMode,
-  ConversationConfig,
-} from "@/lib/elevenlabs";
+  VapiConversation,
+  VapiMessage,
+  VapiMode,
+  VapiConfig,
+} from "@/lib/vapi";
 
-export interface UseConversationOptions {
-  agentId?: string;
+export interface UseVapiConversationOptions {
+  assistantId?: string;
   systemPrompt?: string;
-  voiceSpeed?: number; // Speech rate multiplier (0.5-2.0, default: 1.0)
-  onMessage?: (message: ConversationMessage) => void;
+  firstMessage?: string;
+  onMessage?: (message: VapiMessage) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
 }
 
-export interface UseConversationReturn {
+export interface UseVapiConversationReturn {
   isConnected: boolean;
   isConnecting: boolean;
-  mode: ConversationMode;
+  mode: VapiMode;
   isMuted: boolean;
-  audioLevel: number;
-  messages: ConversationMessage[];
+  messages: VapiMessage[];
   error: Error | null;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -32,29 +31,52 @@ export interface UseConversationReturn {
   clearMessages: () => void;
 }
 
-export function useConversation(
-  options: UseConversationOptions = {}
-): UseConversationReturn {
+export function useVapiConversation(
+  options: UseVapiConversationOptions = {}
+): UseVapiConversationReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [mode, setMode] = useState<ConversationMode>("idle");
+  const [mode, setMode] = useState<VapiMode>("idle");
   const [isMuted, setIsMuted] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [messages, setMessages] = useState<VapiMessage[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
-  const conversationRef = useRef<ElevenLabsConversation | null>(null);
+  const conversationRef = useRef<VapiConversation | null>(null);
+  const processedMessagesRef = useRef<Set<string>>(new Set());
 
   const connect = useCallback(async () => {
     if (conversationRef.current || isConnecting) return;
 
     setIsConnecting(true);
     setError(null);
+    processedMessagesRef.current.clear();
 
-    const config: ConversationConfig = {
-      agentId: options.agentId,
-      systemPrompt: options.systemPrompt,
-      voiceSpeed: options.voiceSpeed,
+    const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
+    if (!publicKey) {
+      const err = new Error("VAPI public key not configured");
+      setError(err);
+      setIsConnecting(false);
+      throw err;
+    }
+
+    const config: VapiConfig = {
+      publicKey,
+      assistantId: options.assistantId || process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID,
+      assistantOverrides: options.systemPrompt
+        ? {
+            model: {
+              provider: "openai",
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: options.systemPrompt,
+                },
+              ],
+            },
+            firstMessage: options.firstMessage || "Hey! I've read through your content. What would you like to learn about?",
+          }
+        : undefined,
       onConnect: () => {
         setIsConnected(true);
         setIsConnecting(false);
@@ -68,8 +90,13 @@ export function useConversation(
         options.onDisconnect?.();
       },
       onMessage: (message) => {
-        setMessages((prev) => [...prev, message]);
-        options.onMessage?.(message);
+        // Deduplicate messages using content + timestamp hash
+        const messageKey = `${message.role}-${message.content}-${Math.floor(message.timestamp / 1000)}`;
+        if (!processedMessagesRef.current.has(messageKey)) {
+          processedMessagesRef.current.add(messageKey);
+          setMessages((prev) => [...prev, message]);
+          options.onMessage?.(message);
+        }
       },
       onError: (err) => {
         setError(err);
@@ -79,12 +106,9 @@ export function useConversation(
       onModeChange: (newMode) => {
         setMode(newMode);
       },
-      onAudioLevel: (level) => {
-        setAudioLevel(level);
-      },
     };
 
-    const conversation = new ElevenLabsConversation(config);
+    const conversation = new VapiConversation(config);
     conversationRef.current = conversation;
 
     try {
@@ -94,7 +118,16 @@ export function useConversation(
       conversationRef.current = null;
       throw err;
     }
-  }, [options.agentId, options.systemPrompt, options.voiceSpeed, options.onMessage, options.onConnect, options.onDisconnect, options.onError, isConnecting]);
+  }, [
+    options.assistantId,
+    options.systemPrompt,
+    options.firstMessage,
+    options.onMessage,
+    options.onConnect,
+    options.onDisconnect,
+    options.onError,
+    isConnecting,
+  ]);
 
   const disconnect = useCallback(async () => {
     if (conversationRef.current) {
@@ -113,13 +146,13 @@ export function useConversation(
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    processedMessagesRef.current.clear();
   }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (conversationRef.current) {
-        // Fire and forget - can't await in cleanup
         conversationRef.current.disconnect().catch(console.error);
       }
     };
@@ -130,7 +163,6 @@ export function useConversation(
     isConnecting,
     mode,
     isMuted,
-    audioLevel,
     messages,
     error,
     connect,

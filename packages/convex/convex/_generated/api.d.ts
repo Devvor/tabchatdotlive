@@ -8,7 +8,11 @@
  * @module
  */
 
+import type * as actions_scrapeLink from "../actions/scrapeLink.js";
+import type * as auth from "../auth.js";
 import type * as conversations from "../conversations.js";
+import type * as crons from "../crons.js";
+import type * as http from "../http.js";
 import type * as links from "../links.js";
 import type * as topics from "../topics.js";
 import type * as users from "../users.js";
@@ -20,7 +24,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/scrapeLink": typeof actions_scrapeLink;
+  auth: typeof auth;
   conversations: typeof conversations;
+  crons: typeof crons;
+  http: typeof http;
   links: typeof links;
   topics: typeof topics;
   users: typeof users;

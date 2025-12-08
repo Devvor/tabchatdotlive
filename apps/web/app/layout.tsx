@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { Toaster } from "sonner";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
@@ -26,22 +26,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Get Clerk domain from environment variable if using custom domain
-  // Note: Clerk automatically prepends "clerk." to custom domains, so we should only provide the base domain
-  // e.g., use "tabchat.live" not "clerk.tabchat.live"
-  const rawDomain = process.env.NEXT_PUBLIC_CLERK_DOMAIN;
-  const clerkDomain = rawDomain?.replace(/^clerk\./, ""); // Remove "clerk." prefix if present
-  
-  // Build ClerkProvider props - use type assertion to handle conditional domain prop
-  // The domain prop is optional and TypeScript may require additional props when it's present,
-  // but in practice Clerk handles this correctly at runtime
-  const clerkProviderProps = {
-    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!,
-    ...(clerkDomain && { domain: clerkDomain }),
-  } as React.ComponentProps<typeof ClerkProvider>;
-  
   return (
-    <ClerkProvider {...clerkProviderProps}>
+    <ConvexAuthNextjsServerProvider>
       <html
         lang="en"
         className={`${GeistSans.variable} ${GeistMono.variable}`}
@@ -63,7 +49,6 @@ export default function RootLayout({
           </ConvexClientProvider>
         </body>
       </html>
-    </ClerkProvider>
+    </ConvexAuthNextjsServerProvider>
   );
 }
-

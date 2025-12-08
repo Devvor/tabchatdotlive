@@ -11,6 +11,10 @@
       "import": "./index.js",
       "require": "./index.js"
     },
+    "./types": {
+      "types": "./types.ts",
+      "import": "./types.ts"
+    },
     "./_generated/server": {
       "types": "./convex/_generated/server.d.ts",
       "import": "./convex/_generated/server.js",
@@ -23,6 +27,8 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
+    "@auth/core": "0.37.0",
+    "@convex-dev/auth": "^0.0.80",
     "convex": "^1.17.0"
   },
   "devDependencies": {

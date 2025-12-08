@@ -1,5 +1,5 @@
 import { Storage } from "@plasmohq/storage";
-import { makeAuthenticatedRequest } from "./lib/auth";
+import { makeAuthenticatedRequest, isAuthenticated } from "./lib/auth";
 import { getWebUrl } from "./lib/config";
 
 const storage = new Storage();
@@ -30,19 +30,36 @@ updateBadge();
 // Handle messages from popup or content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "SAVE_LINK") {
-    // Handle save link from context menu or keyboard shortcut
-    handleSaveLink(message.data).then(() => {
-      sendResponse({ success: true });
-    }).catch((error) => {
-      console.error("Failed to save link:", error);
-      sendResponse({ success: false, error: error.message });
-    });
+    handleSaveLink(message.data)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Failed to save link:", error);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Keep message channel open for async response
   }
+
+  if (message.type === "CHECK_AUTH") {
+    isAuthenticated()
+      .then((authenticated) => {
+        sendResponse({ authenticated });
+      })
+      .catch((error) => {
+        sendResponse({ authenticated: false, error: error.message });
+      });
+    return true;
+  }
+
   return false;
 });
 
-async function handleSaveLink(data: { url: string; title: string; favicon?: string }) {
+async function handleSaveLink(data: {
+  url: string;
+  title: string;
+  favicon?: string;
+}) {
   const savedLinks = (await storage.get<any[]>("savedLinks")) || [];
 
   // Check if already saved
@@ -63,8 +80,11 @@ async function handleSaveLink(data: { url: string; title: string; favicon?: stri
   // Sync with Convex backend
   try {
     const webUrl = getWebUrl();
-    console.log("Background: Attempting to save link to:", `${webUrl}/api/links/save`);
-    
+    console.log(
+      "Background: Attempting to save link to:",
+      `${webUrl}/api/links/save`
+    );
+
     const response = await makeAuthenticatedRequest(`${webUrl}/api/links/save`, {
       method: "POST",
       headers: {
@@ -84,33 +104,40 @@ async function handleSaveLink(data: { url: string; title: string; favicon?: stri
       console.log("Background: Save successful:", result);
       if (result.success) {
         // Update local link status
-        const updatedLinks = savedLinks.map((link) =>
-          link.url === data.url ? { ...link, status: "completed" as const } : link
+        const updatedLinks = (await storage.get<any[]>("savedLinks")) || [];
+        const finalLinks = updatedLinks.map((link) =>
+          link.url === data.url
+            ? { ...link, status: "completed" as const }
+            : link
         );
-        await storage.set("savedLinks", updatedLinks);
+        await storage.set("savedLinks", finalLinks);
       }
     } else {
-      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      const errorData = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       console.error("Background: Save failed:", errorData);
-      
+
       if (response.status === 401) {
-        // User not authenticated - silently fail (user can login via popup)
+        // User not authenticated - mark as pending (user can login via popup)
         console.log("User not authenticated - link saved locally only");
       } else {
         // Update status to failed for other errors
-        const updatedLinks = savedLinks.map((link) =>
+        const updatedLinks = (await storage.get<any[]>("savedLinks")) || [];
+        const finalLinks = updatedLinks.map((link) =>
           link.url === data.url ? { ...link, status: "failed" as const } : link
         );
-        await storage.set("savedLinks", updatedLinks);
+        await storage.set("savedLinks", finalLinks);
       }
     }
   } catch (error) {
     console.error("Background: Failed to sync link to Convex:", error);
     // Update status to failed
-    const updatedLinks = savedLinks.map((link) =>
+    const updatedLinks = (await storage.get<any[]>("savedLinks")) || [];
+    const finalLinks = updatedLinks.map((link) =>
       link.url === data.url ? { ...link, status: "failed" as const } : link
     );
-    await storage.set("savedLinks", updatedLinks);
+    await storage.set("savedLinks", finalLinks);
   }
 }
 

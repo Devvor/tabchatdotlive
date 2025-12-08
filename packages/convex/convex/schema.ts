@@ -1,19 +1,31 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
-  // Users synced from Clerk
+  // Auth tables from Convex Auth
+  ...authTables,
+
+  // Override the users table with custom fields
   users: defineTable({
-    clerkId: v.string(),
-    email: v.string(),
+    // Auth fields
     name: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    createdAt: v.number(),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    // Legacy: Keep clerkId for migration period (optional)
+    clerkId: v.optional(v.string()),
+    imageUrl: v.optional(v.string()), // Legacy alias for image
+    createdAt: v.optional(v.number()),
   })
-    .index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("email", ["email"])
+    .index("by_clerk_id", ["clerkId"]), // Keep for migration
 
   // Saved links from browser extension
+  // Now includes topic fields directly (previously in separate topics table)
   links: defineTable({
     userId: v.id("users"),
     url: v.string(),
@@ -31,17 +43,23 @@ export default defineSchema({
     createdAt: v.number(),
     processedAt: v.optional(v.number()),
     isRead: v.optional(v.boolean()),
+    // Topic fields (merged from topics table)
+    topicName: v.optional(v.string()),
+    topicDescription: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    keyPoints: v.optional(v.array(v.string())),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_status", ["userId", "status"])
     .index("by_url", ["url"]),
 
-  // Topics extracted from processed links
+  // Legacy: Topics table - kept for migration, will be removed later
+  // NOTE: Components still reference this, but new data goes to links directly
   topics: defineTable({
     userId: v.id("users"),
     linkId: v.id("links"),
     name: v.string(),
-    description: v.optional(v.string()), // Concise one-liner epic point (max 7 words)
+    description: v.optional(v.string()),
     summary: v.string(),
     keyPoints: v.array(v.string()),
     createdAt: v.number(),
@@ -75,4 +93,3 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_conversation", ["conversationId"]),
 });
-

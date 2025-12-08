@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@tabchatdotlive/convex";
 import { Id } from "@tabchatdotlive/convex";
+import { fetchQuery } from "convex/nextjs";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -12,17 +13,14 @@ const FIRECRAWL_API_URL = "https://api.firecrawl.dev/v1/scrape";
 function generateDescription(summary?: string, keyPoints?: string[]): string | undefined {
   if (!summary && !keyPoints) return undefined;
   
-  // Try to extract from summary first
   if (summary) {
     const words = summary.trim().split(/\s+/);
     if (words.length <= 7) {
       return summary.trim();
     }
-    // Take first 7 words
     return words.slice(0, 7).join(" ");
   }
   
-  // Fallback to first key point if available
   if (keyPoints && keyPoints.length > 0) {
     const firstPoint = keyPoints[0].trim();
     const words = firstPoint.split(/\s+/);
@@ -88,7 +86,6 @@ async function scrapeAndExtract(url: string): Promise<{
       keyPoints: data.data?.extract?.keyPoints,
     };
     
-    // Generate description if not provided by Firecrawl
     if (!extracted.description) {
       extracted.description = generateDescription(extracted.summary, extracted.keyPoints);
     }
@@ -102,10 +99,20 @@ async function scrapeAndExtract(url: string): Promise<{
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const token = await convexAuthNextjsToken();
 
-    if (!userId) {
+    if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const convexUser = await fetchQuery(
+      api.users.currentUser,
+      {},
+      { token }
+    );
+
+    if (!convexUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const { linkId } = await req.json();
@@ -121,15 +128,6 @@ export async function POST(req: NextRequest) {
 
     if (!link) {
       return NextResponse.json({ error: "Link not found" }, { status: 404 });
-    }
-
-    // Get the user
-    const convexUser = await convex.query(api.users.getByClerkId, {
-      clerkId: userId,
-    });
-
-    if (!convexUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Check if user owns this link
@@ -205,4 +203,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

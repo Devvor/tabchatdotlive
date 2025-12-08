@@ -6,10 +6,10 @@ import { User, Bot } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { ConversationMessage } from "@/lib/elevenlabs";
+import type { VapiMessage } from "@/lib/vapi";
 
 interface ChatMessagesProps {
-  messages: ConversationMessage[];
+  messages: VapiMessage[];
   isCompact?: boolean;
 }
 

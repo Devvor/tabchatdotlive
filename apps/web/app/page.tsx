@@ -1,17 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { ArrowRight, Check, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default async function LandingPage() {
-  const { userId } = await auth();
-
-  if (userId) {
-    redirect("/dashboard");
-  }
-
+export default function LandingPage() {
+  // Auth redirects are handled by middleware
   return (
     <main className="min-h-screen bg-white">
       {/* Navigation */}

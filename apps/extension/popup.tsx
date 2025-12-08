@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStorage } from "@plasmohq/storage/hook";
 import {
-  Sparkles,
   Plus,
   ExternalLink,
   Check,
@@ -11,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import icon from "./assets/tabchat_logo.png";
-import { makeAuthenticatedRequest } from "~/lib/auth";
+import { makeAuthenticatedRequest, isAuthenticated, openLoginPage } from "~/lib/auth";
 import { getWebUrl } from "~/lib/config";
 import "./style.css";
 
@@ -25,7 +24,7 @@ interface SavedLink {
 
 function IndexPopup() {
   const [savedLinks, setSavedLinks] = useStorage<SavedLink[]>("savedLinks", []);
-  const [isLoggedIn, setIsLoggedIn] = useStorage<boolean>("isLoggedIn", false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
@@ -36,6 +35,11 @@ function IndexPopup() {
       if (tabs[0]) {
         setCurrentTab(tabs[0]);
       }
+    });
+
+    // Check auth status
+    isAuthenticated().then((authenticated) => {
+      setIsLoggedIn(authenticated);
     });
   }, []);
 
@@ -50,11 +54,9 @@ function IndexPopup() {
     }
 
     console.log("[Popup] saveCurrentPage called, forceSync:", forceSync);
-    console.log("[Popup] Current tab:", currentTab.url, currentTab.title);
-
     setSaving(true);
 
-    // Add to local storage first for immediate feedback (if not already saved)
+    // Add to local storage first for immediate feedback
     if (!isAlreadySaved || forceSync) {
       const newLink: SavedLink = {
         url: currentTab.url,
@@ -65,10 +67,11 @@ function IndexPopup() {
       };
 
       if (isAlreadySaved && forceSync) {
-        // Update existing link status to pending
         setSavedLinks((links) =>
           links?.map((link) =>
-            link.url === currentTab.url ? { ...link, status: "pending" as const } : link
+            link.url === currentTab.url
+              ? { ...link, status: "pending" as const }
+              : link
           ) || []
         );
       } else {
@@ -76,20 +79,11 @@ function IndexPopup() {
       }
     }
 
-    // Sync with Convex backend
+    // Sync with backend
     try {
       const webUrl = getWebUrl();
-      console.log("=".repeat(50));
-      console.log("[Popup] ===== SAVE LINK START =====");
-      console.log("[Popup] Attempting to save link to:", `${webUrl}/api/links/save`);
-      console.log("[Popup] Link data:", {
-        url: currentTab.url,
-        title: currentTab.title,
-        favicon: currentTab.favIconUrl,
-      });
-      console.log("[Popup] Force sync:", forceSync);
-      console.log("[Popup] Already saved locally:", isAlreadySaved);
-      
+      console.log("[Popup] Saving link to:", `${webUrl}/api/links/save`);
+
       const response = await makeAuthenticatedRequest(`${webUrl}/api/links/save`, {
         method: "POST",
         headers: {
@@ -102,40 +96,47 @@ function IndexPopup() {
         }),
       });
 
-      console.log("[Popup] Response status:", response.status, response.statusText);
-      console.log("[Popup] Response ok:", response.ok);
-      console.log("[Popup] Response headers:", Object.fromEntries(response.headers.entries()));
+      console.log("[Popup] Response status:", response.status);
 
       // Check content type before parsing
       const contentType = response.headers.get("content-type");
       let result;
-      
+
       if (contentType && contentType.includes("application/json")) {
         result = await response.json();
       } else {
         const text = await response.text();
         console.error("[Popup] Non-JSON response:", text);
-        throw new Error(`Server returned ${response.status}: ${text.substring(0, 200)}`);
+        throw new Error(
+          `Server returned ${response.status}: ${text.substring(0, 200)}`
+        );
       }
 
       console.log("[Popup] Save result:", result);
 
       if (!response.ok) {
         console.error("[Popup] Save link failed:", result);
-        
+
         if (response.status === 401) {
-          // User not authenticated - prompt to login
           setIsLoggedIn(false);
-          throw new Error(result.error || result.hint || `Please sign in to the web app first. Open ${getWebUrl()} and sign in.`);
+          throw new Error(
+            result.error ||
+              result.hint ||
+              `Please sign in to the web app first. Open ${getWebUrl()} and sign in.`
+          );
         }
-        throw new Error(result.error || result.hint || `Failed to save link (${response.status})`);
+        throw new Error(
+          result.error || result.hint || `Failed to save link (${response.status})`
+        );
       }
-      
+
       if (result.success) {
         // Update local link status
         setSavedLinks((links) =>
           links?.map((link) =>
-            link.url === currentTab.url ? { ...link, status: "completed" as const } : link
+            link.url === currentTab.url
+              ? { ...link, status: "completed" as const }
+              : link
           ) || []
         );
         setIsLoggedIn(true);
@@ -145,29 +146,20 @@ function IndexPopup() {
       }
     } catch (error: any) {
       console.error("[Popup] Failed to sync link:", error);
-      console.error("[Popup] Error details:", {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      });
-      
+
       // Update status to failed
       setSavedLinks((links) =>
         links?.map((link) =>
-          link.url === currentTab.url ? { ...link, status: "failed" as const } : link
+          link.url === currentTab.url
+            ? { ...link, status: "failed" as const }
+            : link
         ) || []
       );
-      
+
       // Show error to user
       const errorMsg = `Failed to save link: ${error.message}\n\nMake sure you're logged into ${getWebUrl()}`;
-      console.error("[Popup] ===== SAVE LINK FAILED =====");
-      console.error("[Popup] Error:", errorMsg);
       alert(errorMsg);
     } finally {
-      console.log("[Popup] ===== SAVE LINK END =====");
-      console.log("=".repeat(50));
-      
-      // Show success animation
       setSaving(false);
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 2000);
@@ -182,10 +174,8 @@ function IndexPopup() {
     chrome.tabs.create({ url: getWebUrl() });
   };
 
-  const openLogin = () => {
-    chrome.tabs.create({
-      url: `${getWebUrl()}/sign-in`,
-    });
+  const handleLogin = () => {
+    openLoginPage();
   };
 
   return (
@@ -199,8 +189,26 @@ function IndexPopup() {
               Chat with your tabs
             </span>
           </div>
+          {isLoggedIn === false && (
+            <button
+              onClick={handleLogin}
+              className="flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <LogIn className="w-3 h-3" />
+              Sign in
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Auth warning */}
+      {isLoggedIn === false && (
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20">
+          <p className="text-xs text-amber-600">
+            Sign in to sync links to your library
+          </p>
+        </div>
+      )}
 
       {/* Save current page */}
       {currentTab && (
@@ -289,7 +297,9 @@ function IndexPopup() {
             <div className="w-12 h-12 rounded-xl bg-background border border-border flex items-center justify-center mx-auto mb-3 shadow-sm">
               <BookOpen className="w-6 h-6 text-muted-foreground" />
             </div>
-            <p className="text-sm text-foreground font-medium mb-1">No saved links yet</p>
+            <p className="text-sm text-foreground font-medium mb-1">
+              No saved links yet
+            </p>
             <p className="text-xs text-muted-foreground">
               Save this page to start learning
             </p>
@@ -317,10 +327,10 @@ function IndexPopup() {
                     {link.title}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                     <StatusBadge status={link.status} />
-                     <span className="text-[10px] text-muted-foreground truncate">
-                       {new Date(link.savedAt).toLocaleDateString()}
-                     </span>
+                    <StatusBadge status={link.status} />
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {new Date(link.savedAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
                 <button
@@ -367,3 +377,4 @@ function StatusBadge({
 }
 
 export default IndexPopup;
+

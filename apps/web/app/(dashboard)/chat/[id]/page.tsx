@@ -2,17 +2,16 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api, Id } from "@tabchatdotlive/convex";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useConversation } from "@/hooks/use-conversation";
+import { useVapiConversation } from "@/hooks/use-vapi-conversation";
 import { VoiceVisualizer } from "@/components/voice-chat/voice-visualizer";
 import { ChatMessages } from "@/components/voice-chat/chat-messages";
 import { VoiceControls } from "@/components/voice-chat/voice-controls";
-import { generateTeacherPrompt } from "@/lib/firecrawl";
+import { generateTeacherPrompt } from "@/lib/vapi";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,60 +19,92 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 export default function ChatPage() {
   const params = useParams();
   const conversationId = params.id as string;
-  const { user } = useUser();
+
+  // Get current user via Convex Auth
+  const user = useQuery(api.users.currentUser);
 
   const [systemPrompt, setSystemPrompt] = useState<string>("");
 
+  // Get conversation from Convex
   const conversation = useQuery(
     api.conversations.getWithMessages,
     conversationId ? { conversationId: conversationId as Id<"conversations"> } : "skip"
   );
 
+  // Get topic if conversation has one
   const topic = useQuery(
     api.topics.getWithLink,
     conversation?.topicId ? { topicId: conversation.topicId } : "skip"
   );
 
+  // Get link - either from conversation directly or via topic
   const linkId = conversation?.linkId || topic?.linkId;
   const link = useQuery(
     api.links.getById,
     linkId ? { linkId } : "skip"
   );
 
+  // Mutation to save messages
+  const addMessage = useMutation(api.conversations.addMessage);
+
+  // Build system prompt when link content is available
   useEffect(() => {
     if (link?.processedContent) {
       const prompt = generateTeacherPrompt(link.processedContent);
       setSystemPrompt(prompt);
     } else if (!link && conversation) {
-      setSystemPrompt("You are a helpful AI teacher. Help the user learn and understand the topic they're asking about.");
+      setSystemPrompt(
+        "You are a helpful AI teacher. Help the user learn and understand the topic they're asking about. Keep responses conversational and concise since this is a voice interface."
+      );
     }
   }, [link, conversation]);
 
-  const handleMessage = useCallback((message: { role: "user" | "assistant"; content: string; timestamp: number }) => {
-    console.log("Saving message:", message);
-  }, []);
+  // Handle saving messages to Convex
+  const handleMessage = useCallback(
+    async (message: { role: "user" | "assistant"; content: string; timestamp: number }) => {
+      console.log("Saving message:", message);
+      if (conversationId) {
+        try {
+          await addMessage({
+            conversationId: conversationId as Id<"conversations">,
+            role: message.role,
+            content: message.content,
+          });
+        } catch (error) {
+          console.error("Failed to save message:", error);
+        }
+      }
+    },
+    [conversationId, addMessage]
+  );
 
+  // Use Vapi conversation hook
   const {
     isConnected,
     isConnecting,
     mode,
     isMuted,
-    audioLevel,
     messages,
     error,
     connect,
     disconnect,
     toggleMute,
-  } = useConversation({
+  } = useVapiConversation({
     systemPrompt,
-    voiceSpeed: 1.3,
+    firstMessage: link?.title
+      ? `Hey! I've read through "${link.title}". What would you like to learn about?`
+      : "Hey! What would you like to learn about today?",
     onMessage: handleMessage,
   });
 
-  const isLoading = conversation === undefined || (conversation === null && user !== undefined);
+  // Derive audio level from mode (Vapi doesn't expose raw audio levels easily)
+  const audioLevel = mode === "speaking" ? 0.7 : mode === "listening" ? 0.3 : 0;
+
+  const isLoading = conversation === undefined || user === undefined;
   const conversationTitle = conversation?.title || "Conversation";
 
-  if (conversation === null && user !== undefined && !isLoading) {
+  // Show not found state
+  if (conversation === null && user !== null && !isLoading) {
     return (
       <div className="h-full flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
@@ -97,6 +128,7 @@ export default function ChatPage() {
     }
   };
 
+  // Show errors
   useEffect(() => {
     if (error) {
       toast.error(error.message);
@@ -106,7 +138,7 @@ export default function ChatPage() {
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-         <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+        <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
       </div>
     );
   }
@@ -127,10 +159,10 @@ export default function ChatPage() {
                 {conversationTitle}
               </h1>
               {isConnected && (
-                 <span className="text-xs font-medium text-green-600 flex items-center gap-1">
-                   <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse"/>
-                   Connected
-                 </span>
+                <span className="text-xs font-medium text-green-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse" />
+                  Connected
+                </span>
               )}
             </div>
           </div>
@@ -139,61 +171,69 @@ export default function ChatPage() {
         {/* Messages area */}
         <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
-          {messages.length > 0 ? (
-               <div className="max-w-3xl mx-auto">
-            <ChatMessages messages={messages} />
-               </div>
-          ) : (
+            {messages.length > 0 ? (
+              <div className="max-w-3xl mx-auto">
+                <ChatMessages messages={messages} />
+              </div>
+            ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center px-6 max-w-sm">
-                   <div className="mb-8 flex justify-center">
-                        <div className="w-32 h-32 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center">
-                  <VoiceVisualizer
-                    audioLevel={audioLevel}
-                    isActive={isConnected}
-                    mode={mode}
-                  />
-                        </div>
+                  <div className="mb-8 flex justify-center">
+                    <div className="w-32 h-32 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center">
+                      <VoiceVisualizer
+                        audioLevel={audioLevel}
+                        isActive={isConnected}
+                        mode={mode}
+                      />
                     </div>
-                  
+                  </div>
+
                   <AnimatePresence mode="wait">
                     {!isConnected && !isConnecting && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                       >
-                         <h2 className="text-lg font-semibold text-gray-900 mb-1">Session Paused</h2>
-                         <p className="text-sm text-gray-500">Click the microphone to resume.</p>
-                </motion.div>
+                        <h2 className="text-lg font-semibold text-gray-900 mb-1">Ready to Learn</h2>
+                        <p className="text-sm text-gray-500">Click the microphone to start your voice conversation.</p>
+                      </motion.div>
+                    )}
+                    {isConnecting && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <p className="text-sm font-medium text-gray-500">Connecting...</p>
+                      </motion.div>
                     )}
                     {isConnected && (
                       <motion.div
-                         initial={{ opacity: 0 }}
-                         animate={{ opacity: 1 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
                       >
-                           <p className="text-sm font-medium text-gray-900 uppercase tracking-wide animate-pulse">
-                               {mode === 'speaking' ? 'AI Speaking...' : 'Listening...'}
-                    </p>
+                        <p className="text-sm font-medium text-gray-900 uppercase tracking-wide animate-pulse">
+                          {mode === "speaking" ? "AI Speaking..." : "Listening..."}
+                        </p>
                       </motion.div>
-                )}
+                    )}
                   </AnimatePresence>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* Controls */}
+          {/* Controls */}
           <div className="flex-shrink-0 bg-white border-t border-gray-200 p-6">
-             <div className="max-w-3xl mx-auto flex justify-center">
-            <VoiceControls
-              isConnected={isConnected}
-              isConnecting={isConnecting}
-              isMuted={isMuted}
-              onConnect={handleConnect}
-              onDisconnect={disconnect}
-              onToggleMute={toggleMute}
-            />
-             </div>
+            <div className="max-w-3xl mx-auto flex justify-center">
+              <VoiceControls
+                isConnected={isConnected}
+                isConnecting={isConnecting}
+                isMuted={isMuted}
+                onConnect={handleConnect}
+                onDisconnect={disconnect}
+                onToggleMute={toggleMute}
+              />
+            </div>
           </div>
         </div>
       </div>

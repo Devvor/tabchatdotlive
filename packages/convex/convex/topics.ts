@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 
 // Create a topic from processed link
 export const create = mutation({
@@ -82,6 +82,49 @@ export const remove = mutation({
   args: { topicId: v.id("topics") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.topicId);
+  },
+});
+
+// ============ Internal functions for Convex Actions ============
+
+// Internal: Create topic (for actions)
+export const internalCreate = internalMutation({
+  args: {
+    userId: v.id("users"),
+    linkId: v.id("links"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    summary: v.string(),
+    keyPoints: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if topic already exists for this link
+    const existingTopic = await ctx.db
+      .query("topics")
+      .withIndex("by_link", (q) => q.eq("linkId", args.linkId))
+      .first();
+
+    if (existingTopic) {
+      // Update existing topic
+      await ctx.db.patch(existingTopic._id, {
+        name: args.name,
+        description: args.description,
+        summary: args.summary,
+        keyPoints: args.keyPoints,
+      });
+      return existingTopic._id;
+    }
+
+    // Create new topic
+    return await ctx.db.insert("topics", {
+      userId: args.userId,
+      linkId: args.linkId,
+      name: args.name,
+      description: args.description,
+      summary: args.summary,
+      keyPoints: args.keyPoints,
+      createdAt: Date.now(),
+    });
   },
 });
 

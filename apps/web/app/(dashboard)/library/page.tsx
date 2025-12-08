@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@tabchatdotlive/convex";
 import Link from "next/link";
@@ -43,44 +42,17 @@ interface LinkWithTopic {
 }
 
 export default function LibraryPage() {
-  const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [isEnsuringUser, setIsEnsuringUser] = useState(false);
 
-  // Get Convex user
-  const convexUser = useQuery(
-    api.users.getByClerkId,
-    user?.id ? { clerkId: user.id } : "skip"
-  );
-
-  // Ensure user exists in Convex when they're logged in
-  useEffect(() => {
-    if (user?.id && convexUser === null && !isEnsuringUser) {
-      setIsEnsuringUser(true);
-      fetch("/api/users/ensure", {
-        method: "POST",
-      })
-        .then((res) => {
-          if (!res.ok) {
-            console.error("Failed to ensure user exists");
-          }
-        })
-        .catch((error) => {
-          console.error("Error ensuring user:", error);
-        })
-        .finally(() => {
-          setIsEnsuringUser(false);
-        });
-    }
-  }, [user?.id, convexUser, isEnsuringUser]);
+  // Get current user via Convex Auth
+  const user = useQuery(api.users.currentUser);
 
   // Get links for the user with topics
-  // Using type assertion since Convex types may need regeneration with `npx convex dev`
   const links = useQuery(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (api.links as any).getByUserWithTopics,
-    convexUser?._id ? { userId: convexUser._id } : "skip"
+    user?._id ? { userId: user._id } : "skip"
   ) as LinkWithTopic[] | undefined;
 
   // Filter links
@@ -127,8 +99,8 @@ export default function LibraryPage() {
       </div>
 
       {/* Activity Calendar */}
-      {convexUser?._id && (
-        <ActivityCalendar userId={convexUser._id} />
+      {user?._id && (
+        <ActivityCalendar userId={user._id} />
       )}
 
       {/* Controls */}

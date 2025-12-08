@@ -1,19 +1,29 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import {
+  convexAuthNextjsMiddleware,
+  createRouteMatcher,
+  nextjsMiddlewareRedirect,
+} from "@convex-dev/auth/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
-  "/api/links/save", // Allow extension to save links
-  "/api/links/test-auth", // Test endpoint for debugging
-  "/api/extension/token", // Token endpoint (uses cookie auth)
 ]);
 
-export default clerkMiddleware((auth, req) => {
-  if (!isPublicRoute(req)) {
-    auth().protect();
+export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  // Redirect unauthenticated users away from protected routes
+  if (!isPublicRoute(request) && !(await convexAuth.isAuthenticated())) {
+    return nextjsMiddlewareRedirect(request, "/sign-in");
+  }
+
+  // Redirect authenticated users away from auth pages
+  if (
+    (request.nextUrl.pathname.startsWith("/sign-in") ||
+      request.nextUrl.pathname.startsWith("/sign-up")) &&
+    (await convexAuth.isAuthenticated())
+  ) {
+    return nextjsMiddlewareRedirect(request, "/library");
   }
 });
 
@@ -23,4 +33,3 @@ export const config = {
     "/(api|trpc)(.*)",
   ],
 };
-
