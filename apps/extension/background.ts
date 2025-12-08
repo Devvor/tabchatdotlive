@@ -1,8 +1,11 @@
 import { Storage } from "@plasmohq/storage";
-import { makeAuthenticatedRequest, isAuthenticated } from "./lib/auth";
+import { makeAuthenticatedRequest, isAuthenticated, listenForAuthToken, fetchTokenFromWebApp } from "./lib/auth";
 import { getWebUrl } from "./lib/config";
 
 const storage = new Storage();
+
+// Initialize auth token listener
+listenForAuthToken();
 
 // Update badge with saved links count
 async function updateBadge() {
@@ -26,6 +29,63 @@ storage.watch({
 
 // Initialize badge on extension load
 updateBadge();
+
+// Listen for tab updates to detect when user returns from sign-in
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  const webUrl = getWebUrl();
+  
+  // Check if this is a tab navigating to/from the web app
+  if (tab.url && tab.url.startsWith(webUrl)) {
+    // If tab completed loading and we're not authenticated, try to fetch token
+    if (changeInfo.status === "complete") {
+      const authenticated = await isAuthenticated();
+      if (!authenticated) {
+        console.log("[Background] Tab loaded, not authenticated, fetching token");
+        // Small delay to ensure cookies are set
+        setTimeout(async () => {
+          let token = await fetchTokenFromWebApp();
+          if (!token) {
+            console.log("[Background] fetchTokenFromWebApp failed, trying refreshToken");
+            token = await refreshToken();
+          }
+          if (token) {
+            console.log("[Background] Token successfully fetched and stored");
+          } else {
+            console.log("[Background] Could not fetch token - user may need to sign in");
+          }
+        }, 1000);
+      }
+    }
+  }
+  
+  // Check if user just signed in (URL contains sign-in redirect params)
+  if (changeInfo.url && tab.url) {
+    try {
+      const url = new URL(tab.url);
+      if (url.pathname === "/library") {
+        // User likely just signed in, try to fetch token
+        const authenticated = await isAuthenticated();
+        if (!authenticated) {
+          console.log("[Background] User navigated to protected page, fetching token");
+          setTimeout(async () => {
+            let token = await fetchTokenFromWebApp();
+            if (!token) {
+              console.log("[Background] fetchTokenFromWebApp failed, trying refreshToken");
+              token = await refreshToken();
+            }
+            if (token) {
+              console.log("[Background] Token successfully fetched and stored after sign-in");
+            } else {
+              console.log("[Background] Could not fetch token after sign-in");
+            }
+          }, 1500); // Longer delay after sign-in redirect
+        }
+      }
+    } catch (e) {
+      // Invalid URL, ignore
+    }
+  }
+});
 
 // Handle messages from popup or content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

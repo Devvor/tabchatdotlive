@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@tabchatdotlive/convex";
-import { fetchQuery } from "convex/nextjs";
-
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Handle CORS preflight
 export async function OPTIONS(req: NextRequest) {
@@ -25,8 +22,18 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   
   try {
-    // Get auth token from Convex Auth
-    const token = await convexAuthNextjsToken();
+    // Check for Authorization header first (for extension requests)
+    const authHeader = req.headers.get("authorization");
+    let token: string | null | undefined = null;
+    
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+      console.log("Using token from Authorization header");
+    } else {
+      // Fall back to cookie-based auth (for web app requests)
+      token = await convexAuthNextjsToken();
+      console.log("Using token from cookies");
+    }
 
     if (!token) {
       console.error("No Convex Auth token found");
@@ -46,18 +53,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get current user using the token
-    const convexUser = await fetchQuery(
-      api.users.currentUser,
-      {},
-      { token }
-    );
+    // Create a ConvexHttpClient instance with the token
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    convex.setAuth(token);
+
+    // Get current user using the authenticated client
+    let convexUser;
+    try {
+      convexUser = await convex.query(api.users.currentUser, {});
+    } catch (error: any) {
+      // Check if this is an authentication error (expired/invalid token)
+      const errorMessage = error?.message || "";
+      if (errorMessage.includes("Unauthenticated") || errorMessage.includes("Could not verify")) {
+        console.error("Token verification failed:", errorMessage);
+        return NextResponse.json(
+          { 
+            error: "Token expired or invalid. Please sign in again.",
+            code: "TOKEN_EXPIRED",
+            hint: "Your session has expired. Please sign in to the web app again."
+          },
+          { 
+            status: 401,
+            headers: {
+              "Access-Control-Allow-Origin": origin || "*",
+              "Access-Control-Allow-Credentials": "true",
+            },
+          }
+        );
+      }
+      throw error; // Re-throw other errors
+    }
 
     if (!convexUser) {
       console.error("User not found in Convex");
       return NextResponse.json(
         { error: "User not found. Please sign in again." },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: {
+            "Access-Control-Allow-Origin": origin || "*",
+            "Access-Control-Allow-Credentials": "true",
+          },
+        }
       );
     }
 
@@ -68,7 +105,13 @@ export async function POST(req: NextRequest) {
     if (!url || !title) {
       return NextResponse.json(
         { error: "URL and title are required" },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            "Access-Control-Allow-Origin": origin || "*",
+            "Access-Control-Allow-Credentials": "true",
+          },
+        }
       );
     }
 

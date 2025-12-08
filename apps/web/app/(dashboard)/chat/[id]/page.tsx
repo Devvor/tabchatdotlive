@@ -11,7 +11,7 @@ import { useVapiConversation } from "@/hooks/use-vapi-conversation";
 import { VoiceVisualizer } from "@/components/voice-chat/voice-visualizer";
 import { ChatMessages } from "@/components/voice-chat/chat-messages";
 import { VoiceControls } from "@/components/voice-chat/voice-controls";
-import { generateTeacherPrompt } from "@/lib/vapi";
+import { generateTeacherPrompt, generateFirstMessageHook } from "@/lib/vapi";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -52,11 +52,8 @@ export default function ChatPage() {
     if (link?.processedContent) {
       const prompt = generateTeacherPrompt(link.processedContent);
       setSystemPrompt(prompt);
-    } else if (!link && conversation) {
-      setSystemPrompt(
-        "You are a helpful AI teacher. Help the user learn and understand the topic they're asking about. Keep responses conversational and concise since this is a voice interface."
-      );
     }
+    // No fallback - if no link content, systemPrompt stays empty
   }, [link, conversation]);
 
   // Handle saving messages to Convex
@@ -86,19 +83,17 @@ export default function ChatPage() {
     isMuted,
     messages,
     error,
+    audioLevel,
     connect,
     disconnect,
     toggleMute,
   } = useVapiConversation({
     systemPrompt,
     firstMessage: link?.title
-      ? `Hey! I've read through "${link.title}". What would you like to learn about?`
+      ? generateFirstMessageHook(link.title)
       : "Hey! What would you like to learn about today?",
     onMessage: handleMessage,
   });
-
-  // Derive audio level from mode (Vapi doesn't expose raw audio levels easily)
-  const audioLevel = mode === "speaking" ? 0.7 : mode === "listening" ? 0.3 : 0;
 
   const isLoading = conversation === undefined || user === undefined;
   const conversationTitle = conversation?.title || "Conversation";
@@ -113,7 +108,7 @@ export default function ChatPage() {
             This session may have been deleted or you do not have permission to view it.
           </p>
           <Button asChild variant="outline">
-            <Link href="/history">Return to History</Link>
+            <Link href="/library">Return to Library</Link>
           </Button>
         </div>
       </div>
@@ -121,6 +116,10 @@ export default function ChatPage() {
   }
 
   const handleConnect = async () => {
+    if (!systemPrompt) {
+      toast.error("No article content available for this conversation.");
+      return;
+    }
     try {
       await connect();
     } catch (error) {
@@ -143,6 +142,23 @@ export default function ChatPage() {
     );
   }
 
+  // Show error state if conversation exists but no article content is available
+  if (conversation && !link?.processedContent && !isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">No Article Content Available</h2>
+          <p className="text-gray-500 mb-6">
+            This conversation doesn't have any article content associated with it. Please start a new conversation with an article from your library.
+          </p>
+          <Button asChild variant="outline">
+            <Link href="/library">Go to Library</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider>
       <div className="h-[calc(100vh-4rem)] flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -150,7 +166,7 @@ export default function ChatPage() {
         <header className="flex-shrink-0 px-6 py-4 border-b border-gray-100 bg-white flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-900" asChild>
-              <Link href="/history">
+              <Link href="/library">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
             </Button>

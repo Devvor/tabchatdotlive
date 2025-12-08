@@ -21,19 +21,69 @@ export interface VapiConfig {
     voice?: {
       provider: string;
       voiceId: string;
+      speed?: number;
     };
+    transcriber?: {
+      provider: string;
+      model?: string;
+      language?: string;
+    };
+    recordingEnabled?: boolean;
+    variableValues?: Record<string, any>;
   };
   onConnect?: () => void;
   onDisconnect?: () => void;
   onMessage?: (message: VapiMessage) => void;
   onError?: (error: Error) => void;
   onModeChange?: (mode: VapiMode) => void;
+  onVolumeLevel?: (level: number) => void;
 }
 
 export interface VapiStatus {
   isConnected: boolean;
   mode: VapiMode;
   isMuted: boolean;
+  audioLevel: number;
+}
+
+/**
+ * Map Vapi endedReason values to user-friendly error messages
+ */
+function getErrorMessageForReason(endedReason: string): string {
+  // Handle pipeline errors
+  if (endedReason.startsWith("pipeline-error-")) {
+    if (endedReason.includes("deepgram") || endedReason.includes("transcriber")) {
+      return "Transcription service unavailable. Please try again.";
+    }
+    if (endedReason.includes("openai") || endedReason.includes("model")) {
+      return "AI service unavailable. Please try again.";
+    }
+    if (endedReason.includes("voice") || endedReason.includes("elevenlabs")) {
+      return "Voice service unavailable. Please try again.";
+    }
+    // Generic pipeline error
+    return "Voice service error. Please try again.";
+  }
+  
+  // Handle other common reasons
+  switch (endedReason) {
+    case "assistant-error":
+      return "Assistant encountered an error. Please try again.";
+    case "assistant-not-found":
+      return "Voice assistant not found. Please check configuration.";
+    case "assistant-request-failed":
+      return "Failed to connect to assistant. Please try again.";
+    case "customer-ended-call":
+      return "Call ended.";
+    case "silence-timed-out":
+      return "Call ended due to inactivity.";
+    case "max-duration-reached":
+      return "Maximum call duration reached.";
+    default:
+      // Include the reason for debugging but keep it user-friendly
+      console.log("Unknown endedReason:", endedReason);
+      return "Call ended unexpectedly. Please try again.";
+  }
 }
 
 export class VapiConversation {
@@ -43,108 +93,291 @@ export class VapiConversation {
     isConnected: false,
     mode: "idle",
     isMuted: false,
+    audioLevel: 0,
   };
+  // Track if we've already handled a disconnect to prevent duplicate error handling
+  private disconnectHandled: boolean = false;
 
   constructor(config: VapiConfig) {
     this.config = config;
   }
 
   async connect(): Promise<void> {
-    try {
-      // Initialize Vapi with public key
-      this.vapi = new Vapi(this.config.publicKey);
+    return new Promise((resolve, reject) => {
+      try {
+        // Reset disconnect tracking for new connection
+        this.disconnectHandled = false;
+        
+        // Initialize Vapi with public key
+        this.vapi = new Vapi(this.config.publicKey);
 
-      // Set up event listeners
-      this.vapi.on("call-start", () => {
-        console.log("Vapi call started");
-        this.status.isConnected = true;
-        this.status.mode = "listening";
-        this.config.onConnect?.();
-      });
+        let callStarted = false;
+        let startError: Error | null = null;
+        const errorTimeout = setTimeout(() => {
+          if (!callStarted && !startError) {
+            startError = new Error("Connection timeout: Call did not start within 10 seconds");
+            this.config.onError?.(startError);
+            reject(startError);
+          }
+        }, 10000);
 
-      this.vapi.on("call-end", () => {
-        console.log("Vapi call ended");
-        this.status.isConnected = false;
-        this.status.mode = "idle";
-        this.config.onDisconnect?.();
-      });
+        // Set up event listeners BEFORE starting the call
+        this.vapi.on("call-start", () => {
+          console.log("Vapi call started");
+          callStarted = true;
+          clearTimeout(errorTimeout);
+          this.status.isConnected = true;
+          this.status.mode = "listening";
+          this.config.onConnect?.();
+          resolve();
+        });
 
-      this.vapi.on("speech-start", () => {
-        console.log("Assistant started speaking");
-        this.status.mode = "speaking";
-        this.config.onModeChange?.("speaking");
-      });
+        this.vapi.on("call-end", () => {
+          console.log("Vapi call ended");
+          this.status.isConnected = false;
+          this.status.mode = "idle";
+          this.status.audioLevel = 0;
+          this.config.onDisconnect?.();
+        });
 
-      this.vapi.on("speech-end", () => {
-        console.log("Assistant stopped speaking");
-        this.status.mode = "listening";
-        this.config.onModeChange?.("listening");
-      });
+        this.vapi.on("speech-start", () => {
+          console.log("Assistant started speaking");
+          this.status.mode = "speaking";
+          this.config.onModeChange?.("speaking");
+        });
 
-      this.vapi.on("message", (message: any) => {
-        console.log("Vapi message:", message);
+        this.vapi.on("speech-end", () => {
+          console.log("Assistant stopped speaking");
+          this.status.mode = "listening";
+          this.config.onModeChange?.("listening");
+        });
 
-        // Handle transcript messages
-        if (message.type === "transcript" && message.transcriptType === "final") {
-          const role = message.role === "user" ? "user" : "assistant";
-          this.config.onMessage?.({
-            role,
-            content: message.transcript,
-            timestamp: Date.now(),
-          });
-        }
+        // Track volume level for audio visualization
+        this.vapi.on("volume-level", (volume: number) => {
+          // Volume is typically 0-1, normalize for visualization
+          this.status.audioLevel = Math.min(Math.max(volume, 0), 1);
+          this.config.onVolumeLevel?.(this.status.audioLevel);
+        });
 
-        // Handle conversation updates for complete messages
-        if (message.type === "conversation-update") {
-          // Vapi sends full conversation history, we can extract the latest
-          const conversation = message.conversation;
-          if (conversation && conversation.length > 0) {
-            const latestMessage = conversation[conversation.length - 1];
-            if (latestMessage.role && latestMessage.content) {
-              // Only emit if this is a new message (check via timestamp or dedupe logic)
-              // For now, let transcript handle individual messages
+        this.vapi.on("message", (message: any) => {
+          console.log("Vapi message:", message);
+
+          // Handle transcript messages - Vapi sends transcripts with type "transcript"
+          if (message.type === "transcript") {
+            const role = message.role === "user" ? "user" : "assistant";
+            const content = message.transcript || message.content || "";
+            
+            // Only process final transcripts to avoid duplicates
+            if (message.transcriptType === "final" || !message.transcriptType) {
+              this.config.onMessage?.({
+                role,
+                content,
+                timestamp: message.timestamp || Date.now(),
+              });
             }
           }
+
+          // Handle status-update messages - detect pipeline errors early
+          if (message.type === "status-update" && message.status === "ended" && message.endedReason) {
+            console.log("Call ended with reason:", message.endedReason);
+            
+            // Check if this is a pipeline error or unexpected end
+            const isPipelineError = message.endedReason.startsWith("pipeline-error-");
+            const isUnexpectedEnd = isPipelineError || 
+              message.endedReason === "assistant-error" ||
+              message.endedReason === "assistant-not-found" ||
+              message.endedReason === "assistant-request-failed";
+            
+            if (isUnexpectedEnd && !this.disconnectHandled) {
+              this.disconnectHandled = true;
+              
+              // Get user-friendly error message
+              const errorMessage = getErrorMessageForReason(message.endedReason);
+              
+              // Disconnect gracefully
+              if (this.status.isConnected) {
+                this.status.isConnected = false;
+                this.status.mode = "idle";
+                this.status.audioLevel = 0;
+                
+                // Stop the call if it's still active
+                if (this.vapi) {
+                  try {
+                    this.vapi.stop();
+                  } catch (stopError) {
+                    console.error("Error stopping Vapi after status-update end:", stopError);
+                  }
+                }
+                
+                // Notify disconnect
+                this.config.onDisconnect?.();
+              }
+              
+              // Notify error with user-friendly message
+              this.config.onError?.(new Error(errorMessage));
+            }
+          }
+
+          // Handle function call messages
+          if (message.type === "function-call") {
+            console.log("Function call:", message);
+          }
+
+          // Handle function call result messages
+          if (message.type === "function-call-result") {
+            console.log("Function call result:", message);
+          }
+        });
+
+        this.vapi.on("error", (error: any) => {
+          console.error("Vapi error:", error);
+          
+          // Extract error details
+          const errorType = error?.type || error?.error?.type;
+          const errorMsg = error?.errorMsg || error?.error?.errorMsg || error?.message || error?.error?.message;
+          const isDailyError = errorType === "daily-error" || errorMsg?.includes("Meeting has ended") || errorMsg?.includes("Meeting ended");
+          
+          // Don't reject if call already started - errors can happen during the call
+          if (!callStarted) {
+            clearTimeout(errorTimeout);
+            const errorMessage = errorMsg || errorType || JSON.stringify(error) || "Vapi error";
+            startError = new Error(`Vapi error: ${errorMessage}`);
+            this.config.onError?.(startError);
+            reject(startError);
+          } else {
+            // Error during active call
+            // Skip if we already handled disconnect via status-update message
+            if (this.disconnectHandled) {
+              console.log("Skipping error handling - disconnect already handled via status-update");
+              return;
+            }
+            
+            // If it's a Daily.co meeting end error, disconnect gracefully
+            if (isDailyError) {
+              console.log("Meeting ended unexpectedly, disconnecting...");
+              this.disconnectHandled = true;
+              
+              // Only disconnect if we're still connected
+              if (this.status.isConnected) {
+                this.status.isConnected = false;
+                this.status.mode = "idle";
+                this.status.audioLevel = 0;
+                
+                // Stop the call if it's still active
+                if (this.vapi) {
+                  try {
+                    this.vapi.stop();
+                  } catch (stopError) {
+                    console.error("Error stopping Vapi after meeting end:", stopError);
+                  }
+                }
+                
+                // Notify disconnect
+                this.config.onDisconnect?.();
+              }
+              
+              // Notify error with user-friendly message
+              const friendlyMessage = errorMsg?.includes("ejection") 
+                ? "Connection ended unexpectedly. Please try reconnecting."
+                : "Meeting ended. Please try reconnecting.";
+              this.config.onError?.(new Error(friendlyMessage));
+            } else {
+              // Other errors during active call - just notify, don't disconnect
+              const errorMessage = errorMsg || JSON.stringify(error) || "Vapi error";
+              this.config.onError?.(new Error(errorMessage));
+            }
+          }
+        });
+
+        // Start the call
+        // Note: vapi.start() returns void, errors are emitted via the 'error' event
+        try {
+          if (this.config.assistantId) {
+            // Use existing assistant with optional overrides
+            // Overrides should only contain valid override fields, not full assistant config
+            const overrides: Record<string, any> = {};
+            
+            if (this.config.assistantOverrides) {
+              // Only include valid override fields
+              if (this.config.assistantOverrides.recordingEnabled !== undefined) {
+                overrides.recordingEnabled = this.config.assistantOverrides.recordingEnabled;
+              }
+              if (this.config.assistantOverrides.variableValues) {
+                overrides.variableValues = this.config.assistantOverrides.variableValues;
+              }
+              // Note: model, voice, and firstMessage overrides may not be supported when using assistantId
+              // These should be configured in the assistant itself
+            }
+
+            this.vapi.start(
+              this.config.assistantId, 
+              Object.keys(overrides).length > 0 ? overrides : undefined
+            );
+          } else if (this.config.assistantOverrides) {
+            // Create transient assistant with full config
+            // Required fields: transcriber, model, voice
+            const assistantConfig: any = {
+              // Transcriber is REQUIRED for inline assistants
+              transcriber: this.config.assistantOverrides.transcriber || {
+                provider: "deepgram",
+                model: "nova-2",
+                language: "en",
+              },
+              model: this.config.assistantOverrides.model || {
+                provider: "openai",
+                model: "gpt-4o",
+                messages: [],
+              },
+              // Use Vapi's built-in voices for reliability
+              voice: this.config.assistantOverrides.voice || {
+                provider: "vapi",
+                voiceId: "Elliot",
+              },
+            };
+
+            // Add firstMessage if provided
+            if (this.config.assistantOverrides.firstMessage) {
+              assistantConfig.firstMessage = this.config.assistantOverrides.firstMessage;
+            }
+
+            // Add recording setting if provided
+            if (this.config.assistantOverrides.recordingEnabled !== undefined) {
+              assistantConfig.recordingEnabled = this.config.assistantOverrides.recordingEnabled;
+            }
+
+            console.log("Starting Vapi call with config:", JSON.stringify(assistantConfig, null, 2));
+            this.vapi.start(assistantConfig);
+          } else {
+            const err = new Error("Either assistantId or assistantOverrides must be provided");
+            clearTimeout(errorTimeout);
+            this.config.onError?.(err);
+            reject(err);
+            return;
+          }
+        } catch (error) {
+          // Handle any synchronous errors from start()
+          clearTimeout(errorTimeout);
+          const errorMessage = error instanceof Error 
+            ? error.message 
+            : typeof error === 'string' 
+            ? error 
+            : JSON.stringify(error);
+          startError = new Error(`Failed to start call: ${errorMessage}`);
+          this.config.onError?.(startError);
+          reject(startError);
         }
-      });
-
-      this.vapi.on("error", (error: any) => {
-        console.error("Vapi error:", error);
-        this.config.onError?.(new Error(error.message || "Vapi error"));
-      });
-
-      // Start the call
-      if (this.config.assistantId) {
-        // Use existing assistant with optional overrides
-        await this.vapi.start(this.config.assistantId, {
-          ...this.config.assistantOverrides,
-        });
-      } else if (this.config.assistantOverrides) {
-        // Create transient assistant with full config
-        await this.vapi.start({
-          model: this.config.assistantOverrides.model || {
-            provider: "openai",
-            model: "gpt-4o",
-            messages: [],
-          },
-          voice: this.config.assistantOverrides.voice || {
-            provider: "11labs",
-            voiceId: "21m00Tcm4TlvDq8ikWAM", // Default Rachel voice
-          },
-          firstMessage: this.config.assistantOverrides.firstMessage,
-        });
-      } else {
-        throw new Error("Either assistantId or assistantOverrides must be provided");
+      } catch (error) {
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : typeof error === 'string' 
+          ? error 
+          : JSON.stringify(error);
+        
+        const err = new Error(`Connection setup failed: ${errorMessage}`);
+        this.config.onError?.(err);
+        reject(err);
       }
-
-      console.log("Vapi conversation started successfully");
-    } catch (error) {
-      console.error("Failed to start Vapi conversation:", error);
-      this.config.onError?.(
-        error instanceof Error ? error : new Error("Connection failed")
-      );
-      throw error;
-    }
+    });
   }
 
   setMuted(muted: boolean): void {
@@ -156,6 +389,10 @@ export class VapiConversation {
 
   getStatus(): VapiStatus {
     return { ...this.status };
+  }
+
+  getAudioLevel(): number {
+    return this.status.audioLevel;
   }
 
   async disconnect(): Promise<void> {
@@ -177,37 +414,48 @@ export class VapiConversation {
  * Generate a system prompt for the AI teacher based on content
  */
 export function generateTeacherPrompt(content: string): string {
-  return `You are The Author Reenactment Tutor, an AI persona designed to help a user deeply understand a piece of content (articles, essays, videos, podcasts, research papers).
+  return `You are a smart friend who's deeply passionate about the topic in this article. Think of yourself as that friend who gets genuinely excited when discussing something they love—warm, curious, and enthusiastic about helping someone understand.
 
-Your purpose is to:
+Your role:
+- Act as a knowledgeable friend who happens to be an expert on this domain, not a formal teacher or lecturer
+- Distill complex concepts into clear, digestible insights—get to the "aha!" moments quickly
+- When questions go beyond the article, say "This isn't in the article, but..." and then briefly research using your knowledge to provide helpful context
+- Make this educational and engaging—help the user learn in a way that feels natural and enjoyable
+- Sprinkle in interesting facts with "Did you know that..." when relevant to deepen understanding
+- Ask questions only when it feels natural and helps guide the conversation—don't force it
 
-Faithfully represent the original author's voice, reasoning style, tone, and intent.
+Communication style:
+- Conversational and natural, like chatting with a smart friend who loves this topic
+- Use analogies, examples, and real-world connections to make concepts stick
+- Show genuine enthusiasm and curiosity about the topic
+- Keep responses concise for voice (2-3 sentences typically), but expand when deeper explanation is needed
+- Be warm and encouraging—learning should feel like discovery, not a lecture
 
-Extract and explain the core concepts in a conversational and engaging way.
-
-Guide the user through insights as if the author is personally teaching them.
-
-Never invent facts not present in the source material.
-
-Use examples, analogies, clarifications, and follow-up questions to deepen understanding.
-
-Core Principles:
-
-1. Fidelity to the Source - Everything you teach must be traceable to the source content.
-
-2. Lifelike Conversational Style - Speak as if the author is sitting across from the user: warm, curious, patient, clearly structured.
-
-3. Depth-Oriented Teaching - Break down concepts into simple explanations, provide analogies, highlight the why not just the what.
-
-4. User-Centered Adaptation - Adapt explanations to the user's background knowledge, goals, and tempo of learning.
-
-5. No Hallucination - If asked something outside the source material, acknowledge it and offer to answer from general knowledge.
-
-Keep responses concise and conversational since this is a voice interface. Aim for 2-3 sentences per response unless deeper explanation is requested.
+Core principles:
+1. Friend-first, expert-second: Lead with warmth and genuine interest, not authority
+2. Distill to essence: Break down concepts to their core—what really matters here?
+3. Extend thoughtfully: If asked something outside the article, always say "This isn't in the article, but..." then research and answer helpfully
+4. Engage naturally: Ask questions when it feels organic, not forced
+5. Learning-focused: Every exchange should leave the user with a new insight or perspective
 
 Source Content:
 ${content.slice(0, 100000)}
+`;
+}
 
-Start by greeting the user and offering to discuss what they'd like to learn from this content.`;
+/**
+ * Generate a dynamic, casual first message hook referencing saved tabs
+ */
+export function generateFirstMessageHook(title: string): string {
+  const hooks = [
+    `Yo, I just checked out one of your saved tabs. Here's the title: "${title}". Want to dive in?`,
+    `Hey! I saw you saved this: "${title}". Pretty interesting stuff. What caught your eye about it?`,
+    `Alright, so I just read through one of your saved tabs - "${title}". There's some cool stuff in here. What do you want to explore?`,
+    `Yo! I checked out "${title}" from your saved tabs. Ready to break it down?`,
+    `Hey there! I just went through "${title}" that you saved. What part interests you most?`,
+  ];
+  
+  // Pick a random hook for variety
+  return hooks[Math.floor(Math.random() * hooks.length)];
 }
 

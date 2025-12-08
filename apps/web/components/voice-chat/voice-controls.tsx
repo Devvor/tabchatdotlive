@@ -1,13 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mic, MicOff, PhoneOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Loader2 } from "lucide-react";
 
 interface VoiceControlsProps {
   isConnected: boolean;
@@ -20,14 +21,46 @@ interface VoiceControlsProps {
 
 export function VoiceControls({
   isConnected,
+  isConnecting,
   isMuted,
+  onConnect,
   onDisconnect,
   onToggleMute,
 }: VoiceControlsProps) {
-  if (!isConnected) {
-    return null;
+  // Show connect button when not connected
+  if (!isConnected && !isConnecting) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              onClick={onConnect}
+              size="icon"
+              className="w-14 h-14 rounded-full shadow-lg bg-primary hover:bg-primary/90"
+            >
+              <Phone className="w-6 h-6" />
+            </Button>
+          </motion.div>
+        </TooltipTrigger>
+        <TooltipContent>Start conversation</TooltipContent>
+      </Tooltip>
+    );
   }
 
+  // Show loading state when connecting
+  if (isConnecting) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center"
+      >
+        <Loader2 className="w-6 h-6 text-primary animate-spin" />
+      </motion.div>
+    );
+  }
+
+  // Show controls when connected
   return (
     <div className="flex items-center gap-4">
       {/* Mute button */}

@@ -48,7 +48,6 @@ export default function NewChatPage() {
     toggleMute,
   } = useConversation({
     systemPrompt,
-    voiceSpeed: 1.3,
     onMessage: handleMessage,
     onDisconnect: () => {
       toast.info("Session ended", {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@tabchatdotlive/convex";
 import { formatDistanceToNow } from "date-fns";
@@ -69,11 +69,14 @@ interface LinkCardProps {
 }
 
 export function LinkCard({ link }: LinkCardProps) {
+  const router = useRouter();
   const [tldrOpen, setTldrOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
   const toggleRead = useMutation(api.links.toggleReadStatus);
   const removeLink = useMutation(api.links.remove);
+  const createConversation = useMutation(api.conversations.create);
   
   // Get topic if not provided (fallback for backward compatibility)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,6 +110,27 @@ export function LinkCard({ link }: LinkCardProps) {
       setDeleteDialogOpen(false);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleStartChat = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsStartingChat(true);
+    try {
+      // Create a new conversation linked to this saved link
+      const conversationId = await createConversation({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        userId: link.userId as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        linkId: link._id as any,
+        title: link.title,
+      });
+      // Navigate to the conversation - this will use the already-scraped processedContent
+      router.push(`/chat/${conversationId}`);
+    } catch (error) {
+      console.error("Failed to start chat:", error);
+      setIsStartingChat(false);
     }
   };
 
@@ -235,13 +259,15 @@ export function LinkCard({ link }: LinkCardProps) {
             <Button 
               size="sm" 
               className="h-8 px-3 gap-1.5 text-xs font-medium"
-              disabled={!isCompleted}
-              asChild
+              disabled={!isCompleted || isStartingChat}
+              onClick={handleStartChat}
             >
-              <Link href={`/chat/new?linkUrl=${encodeURIComponent(link.url)}`}>
+              {isStartingChat ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
                 <MessageSquare className="w-3.5 h-3.5" />
-                Chat
-              </Link>
+              )}
+              {isStartingChat ? "Starting..." : "Chat"}
             </Button>
           </div>
         </div>

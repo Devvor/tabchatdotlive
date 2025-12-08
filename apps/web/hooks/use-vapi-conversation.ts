@@ -25,6 +25,7 @@ export interface UseVapiConversationReturn {
   isMuted: boolean;
   messages: VapiMessage[];
   error: Error | null;
+  audioLevel: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   toggleMute: () => void;
@@ -40,6 +41,7 @@ export function useVapiConversation(
   const [isMuted, setIsMuted] = useState(false);
   const [messages, setMessages] = useState<VapiMessage[]>([]);
   const [error, setError] = useState<Error | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
 
   const conversationRef = useRef<VapiConversation | null>(null);
   const processedMessagesRef = useRef<Set<string>>(new Set());
@@ -64,6 +66,11 @@ export function useVapiConversation(
       assistantId: options.assistantId || process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID,
       assistantOverrides: options.systemPrompt
         ? {
+            transcriber: {
+              provider: "deepgram",
+              model: "nova-2",
+              language: "en",
+            },
             model: {
               provider: "openai",
               model: "gpt-4o",
@@ -74,7 +81,11 @@ export function useVapiConversation(
                 },
               ],
             },
-            firstMessage: options.firstMessage || "Hey! I've read through your content. What would you like to learn about?",
+            voice: {
+              provider: "vapi",
+              voiceId: "Elliot",
+            },
+            firstMessage: options.firstMessage,
           }
         : undefined,
       onConnect: () => {
@@ -105,6 +116,9 @@ export function useVapiConversation(
       },
       onModeChange: (newMode) => {
         setMode(newMode);
+      },
+      onVolumeLevel: (level) => {
+        setAudioLevel(level);
       },
     };
 
@@ -158,6 +172,15 @@ export function useVapiConversation(
     };
   }, []);
 
+  // Derive audio level from mode if not available from volume-level event
+  const derivedAudioLevel = audioLevel > 0 
+    ? audioLevel 
+    : mode === "speaking" 
+    ? 0.7 
+    : mode === "listening" 
+    ? 0.3 
+    : 0;
+
   return {
     isConnected,
     isConnecting,
@@ -165,6 +188,7 @@ export function useVapiConversation(
     isMuted,
     messages,
     error,
+    audioLevel: derivedAudioLevel,
     connect,
     disconnect,
     toggleMute,

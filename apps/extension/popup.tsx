@@ -1,5 +1,7 @@
+/// <reference path="./images.d.ts" />
 import { useState, useEffect } from "react";
 import { useStorage } from "@plasmohq/storage/hook";
+import { Storage } from "@plasmohq/storage";
 import {
   Plus,
   ExternalLink,
@@ -10,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import icon from "./assets/tabchat_logo.png";
-import { makeAuthenticatedRequest, isAuthenticated, openLoginPage } from "~/lib/auth";
+import { makeAuthenticatedRequest, isAuthenticated, openLoginPage, fetchTokenFromWebApp } from "~/lib/auth";
 import { getWebUrl } from "~/lib/config";
 import "./style.css";
 
@@ -37,10 +39,59 @@ function IndexPopup() {
       }
     });
 
-    // Check auth status
-    isAuthenticated().then((authenticated) => {
+    // Check auth status and try to fetch token if not authenticated
+    const checkAuth = async () => {
+      const authenticated = await isAuthenticated();
       setIsLoggedIn(authenticated);
+      
+      // If not authenticated, try to fetch token from web app (user might have signed in)
+      if (!authenticated) {
+        console.log("[Popup] Not authenticated, attempting to fetch token");
+        
+        // First try: check if web app tab is open and use content script
+        const token = await fetchTokenFromWebApp();
+        if (token) {
+          console.log("[Popup] Token fetched successfully via content script");
+          setIsLoggedIn(true);
+          return;
+        }
+        
+        // Second try: open background tab to fetch token (this will have cookie access)
+        console.log("[Popup] Content script failed, trying background tab method");
+        const { refreshToken } = await import("~/lib/auth");
+        const refreshedToken = await refreshToken();
+        if (refreshedToken) {
+          console.log("[Popup] Token refreshed successfully via background tab");
+          setIsLoggedIn(true);
+        } else {
+          console.log("[Popup] Could not fetch or refresh token - user needs to sign in");
+          setIsLoggedIn(false);
+        }
+      }
+    };
+    
+    checkAuth();
+    
+    // Listen for token storage changes (when background script fetches token)
+    const storage = new Storage();
+    storage.watch({
+      convexAuthToken: () => {
+        checkAuth();
+      }
     });
+    
+    // Also check when popup becomes visible (user might have signed in while popup was closed)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkAuth();
+      }
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const isAlreadySaved = savedLinks?.some(
@@ -81,6 +132,52 @@ function IndexPopup() {
 
     // Sync with backend
     try {
+      // Before making the request, ensure we have a token
+      const authenticated = await isAuthenticated();
+      console.log("[Popup] Auth status before save:", authenticated);
+      
+      if (!authenticated) {
+        console.log("[Popup] Not authenticated before save, attempting to fetch token");
+        const { fetchTokenFromWebApp, refreshToken } = await import("~/lib/auth");
+        
+        console.log("[Popup] Step 1: Trying fetchTokenFromWebApp");
+        let token = await fetchTokenFromWebApp();
+        console.log("[Popup] fetchTokenFromWebApp returned:", token ? "TOKEN" : "NULL");
+        
+        if (!token) {
+          console.log("[Popup] Step 2: fetchTokenFromWebApp failed, trying refreshToken");
+          token = await refreshToken();
+          console.log("[Popup] refreshToken returned:", token ? "TOKEN" : "NULL");
+        }
+        
+        // Verify token was actually stored by checking storage
+        const verifyAuth = await isAuthenticated();
+        console.log("[Popup] Auth verification after token fetch:", verifyAuth);
+        
+        if (token && verifyAuth) {
+          console.log("[Popup] Token obtained and verified successfully, updating UI");
+          setIsLoggedIn(true);
+        } else {
+          console.log("[Popup] All token fetch methods failed or token not stored");
+          console.log("[Popup] Token value:", token);
+          console.log("[Popup] Auth check:", verifyAuth);
+          setIsLoggedIn(false);
+          throw new Error(
+            `Please sign in to the web app first. Open ${getWebUrl()} and sign in, then try again. Make sure the web app tab is open when signing in.`
+          );
+        }
+      }
+      
+      // Double-check we have a token before making the request
+      const tokenCheck = await isAuthenticated();
+      console.log("[Popup] Final auth check before request:", tokenCheck);
+      
+      if (!tokenCheck) {
+        throw new Error(
+          `Please sign in to the web app first. Open ${getWebUrl()} and sign in, then try again. Make sure the web app tab is open when signing in.`
+        );
+      }
+      
       const webUrl = getWebUrl();
       console.log("[Popup] Saving link to:", `${webUrl}/api/links/save`);
 
@@ -107,6 +204,15 @@ function IndexPopup() {
       } else {
         const text = await response.text();
         console.error("[Popup] Non-JSON response:", text);
+        
+        // If we got HTML, it means we're not authenticated
+        if (contentType && contentType.includes("text/html")) {
+          setIsLoggedIn(false);
+          throw new Error(
+            `Please sign in to the web app first. Open ${getWebUrl()} and sign in, then try again.`
+          );
+        }
+        
         throw new Error(
           `Server returned ${response.status}: ${text.substring(0, 200)}`
         );
@@ -118,6 +224,11 @@ function IndexPopup() {
         console.error("[Popup] Save link failed:", result);
 
         if (response.status === 401) {
+          // Token expired or invalid - clear it and force re-auth
+          const { clearToken } = await import("~/lib/auth");
+          await clearToken();
+          console.log("[Popup] Cleared expired token, user needs to sign in again");
+          
           setIsLoggedIn(false);
           throw new Error(
             result.error ||
