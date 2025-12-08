@@ -1,9 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@tabchatdotlive/convex";
-import type { Id } from "@tabchatdotlive/convex";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -12,15 +9,16 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-interface ActivityCalendarProps {
-  userId: Id<"users">;
+// Minimal link type needed for activity calculation
+interface LinkData {
+  createdAt: number;
 }
 
-export function ActivityCalendar({ userId }: ActivityCalendarProps) {
-  const links = useQuery(
-    api.links.getByUser,
-    userId ? { userId } : "skip"
-  );
+interface ActivityCalendarProps {
+  links: LinkData[] | undefined;
+}
+
+export function ActivityCalendar({ links }: ActivityCalendarProps) {
 
   // Calculate activity data
   const activityData = useMemo(() => {

@@ -51,7 +51,8 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_status", ["userId", "status"])
-    .index("by_url", ["url"]),
+    .index("by_status", ["status"])
+    .index("by_user_and_url", ["userId", "url"]),
 
   // Legacy: Topics table - kept for migration, will be removed later
   // NOTE: Components still reference this, but new data goes to links directly

@@ -134,22 +134,13 @@ export const scrapeLink = internalAction({
 
     if (extracted && extracted.summary && extracted.keyPoints) {
       // Success! Update link with all processed content including topic data
+      // Topic data is now embedded directly in the links table
       await ctx.runMutation(internal.links.internalUpdateWithTopicData, {
         linkId,
         processedContent: extracted.markdown,
         contentSummary: extracted.summary,
         topicName: extracted.title || title,
         topicDescription: extracted.description,
-        summary: extracted.summary,
-        keyPoints: extracted.keyPoints,
-      });
-
-      // Also create topic record for backwards compatibility (temporary)
-      await ctx.runMutation(internal.topics.internalCreate, {
-        userId,
-        linkId,
-        name: extracted.title || title,
-        description: extracted.description,
         summary: extracted.summary,
         keyPoints: extracted.keyPoints,
       });

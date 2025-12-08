@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.80",
-    "@vapi-ai/web": "^2.2.5",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.0",
     "@radix-ui/react-dropdown-menu": "^2.1.0",
@@ -21,6 +20,8 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.0",
+    "@tanstack/react-virtual": "^3.13.13",
+    "@vapi-ai/web": "^2.2.5",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "convex": "^1.17.0",

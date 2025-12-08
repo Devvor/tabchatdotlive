@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@tabchatdotlive/convex";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { Search, Library as LibraryIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { LinkCard } from "@/components/library/link-card";
 import { ActivityCalendar } from "@/components/library/activity-calendar";
 import { GachaReveal } from "@/components/library/gacha-reveal";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 // Type for topic data
 interface Topic {
@@ -44,6 +47,7 @@ interface LinkWithTopic {
 
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300);
   const [activeTab, setActiveTab] = useState("all");
   const [gachaOpen, setGachaOpen] = useState(false);
   const [selectedGachaLink, setSelectedGachaLink] = useState<LinkWithTopic | null>(null);
@@ -80,7 +84,7 @@ export default function LibraryPage() {
     setGachaOpen(true);
   }, [pickRandomUnread]);
 
-  // Filter links
+  // Filter links (uses debounced search query for performance)
   const filteredLinks = useMemo(() => {
     if (!links) return [];
     
@@ -94,8 +98,8 @@ export default function LibraryPage() {
     }
 
     // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter(
         (link) =>
           link.title.toLowerCase().includes(query) ||
@@ -106,7 +110,17 @@ export default function LibraryPage() {
     }
 
     return filtered;
-  }, [links, searchQuery, activeTab]);
+  }, [links, debouncedSearchQuery, activeTab]);
+
+  // Virtualization for the links list
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: filteredLinks.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 200, // Estimated height of each LinkCard (including gap)
+    overscan: 5, // Render 5 extra items above/below viewport
+    measureElement: (element) => element.getBoundingClientRect().height, // Dynamically measure actual height
+  });
 
   return (
     <div className="space-y-6">
@@ -132,9 +146,7 @@ export default function LibraryPage() {
       </div>
 
       {/* Activity Calendar */}
-      {user?._id && (
-        <ActivityCalendar userId={user._id} />
-      )}
+      <ActivityCalendar links={links} />
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
@@ -184,13 +196,43 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {/* Links list */}
+      {/* Links list - virtualized for performance with large lists */}
       {links !== undefined && filteredLinks.length > 0 && (
-        <div className="space-y-4">
-          {filteredLinks.map((link) => (
-            <LinkCard key={link._id} link={link} />
-          ))}
-        </div>
+        <TooltipProvider>
+          <div
+            ref={parentRef}
+            className="h-[calc(100vh-400px)] min-h-[400px] overflow-auto"
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const link = filteredLinks[virtualItem.index];
+                return (
+                  <div
+                    key={link._id}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualItem.index}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                    className="pb-4"
+                  >
+                    <LinkCard link={link} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </TooltipProvider>
       )}
 
       {/* Empty state */}

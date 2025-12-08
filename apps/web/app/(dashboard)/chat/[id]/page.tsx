@@ -68,15 +68,8 @@ export default function ChatPage() {
     }));
   }, [allLinks, activeLinkId]);
 
-  // === PREFETCH ADJACENT CAROUSEL ITEMS ===
-  const nextLinkId = carouselLinks[selectedIndex + 1]?.id;
-  const prevLinkId = carouselLinks[selectedIndex - 1]?.id;
-  
-  // Prefetch next/prev links (Convex will cache these)
-  useQuery(api.links.getById, nextLinkId ? { linkId: nextLinkId } : "skip");
-  useQuery(api.links.getById, prevLinkId ? { linkId: prevLinkId } : "skip");
-
   // Get the CURRENT link's data (from carousel or direct query)
+  // Note: Adjacent links data is already available in carouselLinks from getByUserWithTopics
   const directLinkQuery = useQuery(
     api.links.getById,
     activeLinkId ? { linkId: activeLinkId } : "skip"

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@tabchatdotlive/convex";
 import { formatDistanceToNow } from "date-fns";
 import { 
@@ -33,7 +33,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TLDRDialog } from "./tldr-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Type for topic data
 interface Topic {
@@ -68,7 +68,7 @@ interface LinkCardProps {
   link: LinkData;
 }
 
-export function LinkCard({ link }: LinkCardProps) {
+export const LinkCard = memo(function LinkCard({ link }: LinkCardProps) {
   const router = useRouter();
   const [tldrOpen, setTldrOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -78,16 +78,22 @@ export function LinkCard({ link }: LinkCardProps) {
   const removeLink = useMutation(api.links.remove);
   const createConversation = useMutation(api.conversations.create);
   
-  // Get topic if not provided (fallback for backward compatibility)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const linkIdForQuery = link._id as any; // Convex IDs are strings at runtime
-  const topic = useQuery(
-    api.topics.getByLink,
-    link.topic === undefined ? { linkId: linkIdForQuery } : "skip"
+  // Topic data comes from parent via getByUserWithTopics
+  const displayTopic = link.topic;
+
+  // Memoize computed values
+  const hostname = useMemo(() => {
+    try {
+      return new URL(link.url).hostname;
+    } catch {
+      return link.url;
+    }
+  }, [link.url]);
+
+  const timeAgo = useMemo(() => 
+    formatDistanceToNow(link.createdAt, { addSuffix: true }),
+    [link.createdAt]
   );
-  
-  // Merge topic data - use the one from link first, then fallback to queried topic
-  const displayTopic: Topic | null | undefined = link.topic ?? (topic as Topic | null | undefined);
 
   const handleToggleRead = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -172,7 +178,7 @@ export function LinkCard({ link }: LinkCardProps) {
                 rel="noopener noreferrer"
                 className="text-xs text-muted-foreground hover:text-primary hover:underline truncate block"
               >
-                {new URL(link.url).hostname}
+                {hostname}
               </a>
             </div>
 
@@ -213,34 +219,32 @@ export function LinkCard({ link }: LinkCardProps) {
 
         <div className="pt-4 mt-2 flex items-center justify-between border-t border-border/50">
           <div className="text-xs text-muted-foreground">
-            {formatDistanceToNow(link.createdAt, { addSuffix: true })}
+            {timeAgo}
           </div>
 
           <div className="flex items-center gap-2">
-             <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      "h-8 px-2 text-muted-foreground",
-                      link.isRead && "text-primary bg-primary/5"
-                    )}
-                    onClick={handleToggleRead}
-                  >
-                    {link.isRead ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : (
-                      <Circle className="w-4 h-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {link.isRead ? "Mark as unread" : "Mark as read"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 px-2 text-muted-foreground",
+                    link.isRead && "text-primary bg-primary/5"
+                  )}
+                  onClick={handleToggleRead}
+                >
+                  {link.isRead ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <Circle className="w-4 h-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {link.isRead ? "Mark as unread" : "Mark as read"}
+              </TooltipContent>
+            </Tooltip>
 
             <Button 
               variant="secondary" 
@@ -317,5 +321,5 @@ export function LinkCard({ link }: LinkCardProps) {
       </Dialog>
     </>
   );
-}
+});
 

@@ -12,13 +12,15 @@ export const create = mutation({
     favicon: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Check if link already exists for this user
+    // Check if link already exists for this user (using compound index)
     const existingLink = await ctx.db
       .query("links")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .withIndex("by_user_and_url", (q) => 
+        q.eq("userId", args.userId).eq("url", args.url)
+      )
       .first();
 
-    if (existingLink && existingLink.userId === args.userId) {
+    if (existingLink) {
       return existingLink._id;
     }
 
@@ -95,14 +97,19 @@ export const getByUserPaginated = query({
 
 // Get all links for a user with their topics
 // Now returns topic data from the link itself (no more N+1 queries!)
+// Optional limit parameter to prevent unbounded queries (default: 500)
 export const getByUserWithTopics = query({
-  args: { userId: v.id("users") },
+  args: { 
+    userId: v.id("users"),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
+    const maxLinks = args.limit ?? 500;
     const links = await ctx.db
       .query("links")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .order("desc")
-      .collect();
+      .take(maxLinks);
     
     // Transform to include topic object for backwards compatibility with UI
     return links.map((link) => {
@@ -282,7 +289,7 @@ export const getFailedLinks = internalQuery({
   handler: async (ctx) => {
     return await ctx.db
       .query("links")
-      .filter((q) => q.eq(q.field("status"), "failed"))
+      .withIndex("by_status", (q) => q.eq("status", "failed"))
       .collect();
   },
 });
@@ -297,13 +304,15 @@ export const createAndScrape = mutation({
     favicon: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Check if link already exists for this user
+    // Check if link already exists for this user (using compound index)
     const existingLink = await ctx.db
       .query("links")
-      .withIndex("by_url", (q) => q.eq("url", args.url))
+      .withIndex("by_user_and_url", (q) => 
+        q.eq("userId", args.userId).eq("url", args.url)
+      )
       .first();
 
-    if (existingLink && existingLink.userId === args.userId) {
+    if (existingLink) {
       return existingLink._id;
     }
 
