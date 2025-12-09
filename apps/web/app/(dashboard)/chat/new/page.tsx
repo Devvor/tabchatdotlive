@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, BookOpen, Loader2, Zap, Sparkles } from "lucide-react";
@@ -16,7 +16,26 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+function NewChatPageLoading() {
+  return (
+    <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <Loader2 className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
 export default function NewChatPage() {
+  return (
+    <Suspense fallback={<NewChatPageLoading />}>
+      <NewChatPageContent />
+    </Suspense>
+  );
+}
+
+function NewChatPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const linkUrl = searchParams.get("linkUrl");
