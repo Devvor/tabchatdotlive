@@ -19,16 +19,21 @@ interface AuthToken {
 export async function getStoredToken(): Promise<string | null> {
   const authData = await storage.get<AuthToken>("convexAuthToken");
   
-  if (!authData) {
+  if (!authData || !authData.token) {
+    console.log("[Auth] No stored token found");
     return null;
   }
   
-  // Check if token is expired (with 5 minute buffer)
-  if (authData.expiresAt < Date.now() + 5 * 60 * 1000) {
-    console.log("[Auth] Token expired or expiring soon");
+  const now = Date.now();
+  const timeUntilExpiry = authData.expiresAt - now;
+  
+  // Only reject if token is actually expired (no buffer - let server handle near-expiry)
+  if (timeUntilExpiry <= 0) {
+    console.log("[Auth] Token expired", { expiresAt: authData.expiresAt, now, diff: timeUntilExpiry });
     return null;
   }
   
+  console.log("[Auth] Token valid, expires in", Math.round(timeUntilExpiry / 1000), "seconds");
   return authData.token;
 }
 

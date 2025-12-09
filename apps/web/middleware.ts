@@ -6,6 +6,8 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
+  "/api/extension/token", // Let the route handler check auth and return JSON errors
+  "/api/users/sync", // Manual user sync for local dev
   "/manifest.json",
 ]);
 

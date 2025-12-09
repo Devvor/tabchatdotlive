@@ -97,7 +97,7 @@ export function useVapiConversation(
         ? {
             transcriber: {
               provider: "deepgram",
-              model: "nova-2",
+              model: "nova-3",
               language: "en",
             },
             model: {
@@ -111,8 +111,8 @@ export function useVapiConversation(
               ],
             },
             voice: {
-              provider: "vapi",
-              voiceId: "Elliot",
+              provider: "11labs",
+              voiceId: "bIHbv24MWmeRgasZH58o",
             },
             firstMessage: options.firstMessage,
           }

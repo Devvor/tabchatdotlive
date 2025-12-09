@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@tabchatdotlive/convex";
+import { jwtDecode } from "jwt-decode";
+
+interface ClerkJwtPayload {
+  sub: string; // Clerk user ID
+  iss: string;
+  aud?: string;
+  exp: number;
+}
 
 // Handle CORS preflight
 export async function OPTIONS(req: NextRequest) {
@@ -22,24 +30,69 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   
   try {
+    // Create a ConvexHttpClient instance (without auth for direct queries by clerk ID)
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+    
+    let clerkUserId: string | null = null;
+    
     // Check for Authorization header first (for extension requests)
     const authHeader = req.headers.get("authorization");
-    let token: string | null = null;
     
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.substring(7);
+      const token = authHeader.substring(7);
       console.log("Using token from Authorization header");
+      
+      // Decode the JWT to get the Clerk user ID
+      try {
+        const decoded = jwtDecode<ClerkJwtPayload>(token);
+        
+        // Validate the token hasn't expired
+        if (decoded.exp * 1000 < Date.now()) {
+          console.error("Token has expired");
+          return NextResponse.json(
+            { 
+              error: "Token expired. Please sign in again.",
+              code: "TOKEN_EXPIRED"
+            },
+            { 
+              status: 401,
+              headers: {
+                "Access-Control-Allow-Origin": origin || "*",
+                "Access-Control-Allow-Credentials": "true",
+              },
+            }
+          );
+        }
+        
+        clerkUserId = decoded.sub;
+        console.log("Decoded Clerk user ID from token:", clerkUserId);
+      } catch (decodeError) {
+        console.error("Failed to decode token:", decodeError);
+        return NextResponse.json(
+          { 
+            error: "Invalid token format",
+            code: "INVALID_TOKEN"
+          },
+          { 
+            status: 401,
+            headers: {
+              "Access-Control-Allow-Origin": origin || "*",
+              "Access-Control-Allow-Credentials": "true",
+            },
+          }
+        );
+      }
     } else {
       // Fall back to cookie-based auth (for web app requests)
-      const { getToken, userId } = await auth();
+      const { userId } = await auth();
       if (userId) {
-        token = await getToken({ template: "convex" });
-        console.log("Using token from Clerk session");
+        clerkUserId = userId;
+        console.log("Using Clerk user ID from session:", clerkUserId);
       }
     }
 
-    if (!token) {
-      console.error("No auth token found");
+    if (!clerkUserId) {
+      console.error("No auth found");
       
       return NextResponse.json(
         { 
@@ -56,39 +109,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create a ConvexHttpClient instance with the token
-    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-    convex.setAuth(token);
-
-    // Get current user using the authenticated client
+    // Look up user in Convex by their Clerk ID (doesn't require Convex auth)
     let convexUser;
     try {
-      convexUser = await convex.query(api.users.currentUser, {});
+      convexUser = await convex.query(api.users.getByClerkId, { clerkId: clerkUserId });
     } catch (error: unknown) {
-      // Check if this is an authentication error (expired/invalid token)
       const errorMessage = error instanceof Error ? error.message : "";
-      if (errorMessage.includes("Unauthenticated") || errorMessage.includes("Could not verify")) {
-        console.error("Token verification failed:", errorMessage);
-        return NextResponse.json(
-          { 
-            error: "Token expired or invalid. Please sign in again.",
-            code: "TOKEN_EXPIRED",
-            hint: "Your session has expired. Please sign in to the web app again."
-          },
-          { 
-            status: 401,
-            headers: {
-              "Access-Control-Allow-Origin": origin || "*",
-              "Access-Control-Allow-Credentials": "true",
-            },
-          }
-        );
-      }
-      throw error; // Re-throw other errors
+      console.error("Error querying user:", errorMessage);
+      throw error;
     }
 
     if (!convexUser) {
-      console.error("User not found in Convex");
+      console.error("User not found in Convex for Clerk ID:", clerkUserId);
       return NextResponse.json(
         { error: "User not found. Please sign in again." },
         { 
@@ -101,7 +133,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("Authenticated user:", convexUser._id);
+    console.log("Found user in Convex:", convexUser._id);
 
     const { url, title, description, favicon } = await req.json();
 

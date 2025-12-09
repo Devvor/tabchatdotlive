@@ -349,8 +349,8 @@ export class VapiConversation {
               },
               // Use Vapi's built-in voices for reliability
               voice: this.config.assistantOverrides.voice || {
-                provider: "vapi",
-                voiceId: "Elliot",
+                provider: "11labs",
+                voiceId: "bIHbv24MWmeRgasZH58o",
               },
             };
 
@@ -481,6 +481,7 @@ Communication style:
 - Show genuine enthusiasm and curiosity about the topic
 - Keep responses concise for voice (2-3 sentences typically), but expand when deeper explanation is needed
 - Be warm and encouraging—learning should feel like discovery, not a lecture
+- Use the pyramid principle way of communicating. Imagine you're talking to a CEO, it has to be concise and to the point.
 
 Core principles:
 1. Friend-first, expert-second: Lead with warmth and genuine interest, not authority
@@ -499,11 +500,33 @@ ${content.slice(0, 100000)}
  */
 export function generateFirstMessageHook(title: string): string {
   const hooks = [
+    // Original hooks
     `Yo, I just checked out one of your saved tabs. Here's the title: "${title}". Want to dive in?`,
     `Hey! I saw you saved this: "${title}". Pretty interesting stuff. What caught your eye about it?`,
     `Alright, so I just read through one of your saved tabs - "${title}". There's some cool stuff in here. What do you want to explore?`,
     `Yo! I checked out "${title}" from your saved tabs. Ready to break it down?`,
     `Hey there! I just went through "${title}" that you saved. What part interests you most?`,
+    
+    // Motivational / tab-clearing vibes
+    `Dude, it's time to get through your tabs. Let's start with "${title}". What do you want to know?`,
+    `Alright, let's tackle that tab backlog! First up: "${title}". Hit me with your questions.`,
+    `Time to clear some tabs! I just read "${title}" for you. What's on your mind about it?`,
+    `Your future self will thank you for this. Let's knock out "${title}". What are you curious about?`,
+    `No more tab hoarding! I went through "${title}". Ready to learn something cool?`,
+    
+    // Casual curiosity hooks
+    `Okay so "${title}" - this is actually pretty interesting. Want the quick rundown or deep dive?`,
+    `I peeked at "${title}" from your collection. Some solid stuff in here. Where should we start?`,
+    `So you saved "${title}" a while back. Good call - there's some gems in here. What do you want to explore?`,
+    `"${title}" - nice save! I just went through it. What made you bookmark this one?`,
+    `Found "${title}" in your tabs. I've got thoughts. Want the highlights or full breakdown?`,
+    
+    // Energy / enthusiasm hooks
+    `Let's go! "${title}" is up first. I'm ready when you are.`,
+    `Okay okay okay, "${title}" - let's do this. What do you want to know?`,
+    `"${title}" - honestly pretty cool stuff. Fire away with questions!`,
+    `Just finished reading "${title}". There's a lot here - what should we tackle first?`,
+    `Yo, "${title}" has some interesting angles. What part caught your attention?`,
   ];
   
   // Pick a random hook for variety

@@ -1,5 +1,5 @@
 /// <reference path="./images.d.ts" />
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStorage } from "@plasmohq/storage/hook";
 import { Storage } from "@plasmohq/storage";
 import {
@@ -30,6 +30,7 @@ function IndexPopup() {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
+  const isCheckingAuth = useRef(false);
 
   useEffect(() => {
     // Get current tab info
@@ -41,11 +42,23 @@ function IndexPopup() {
 
     // Check auth status and try to fetch token if not authenticated
     const checkAuth = async () => {
-      const authenticated = await isAuthenticated();
-      setIsLoggedIn(authenticated);
+      // Prevent concurrent auth checks
+      if (isCheckingAuth.current) {
+        console.log("[Popup] Auth check already in progress, skipping");
+        return;
+      }
+      isCheckingAuth.current = true;
       
-      // If not authenticated, try to fetch token from web app (user might have signed in)
-      if (!authenticated) {
+      try {
+        const authenticated = await isAuthenticated();
+        
+        // If already authenticated, we're done
+        if (authenticated) {
+          setIsLoggedIn(true);
+          return;
+        }
+        
+        setIsLoggedIn(false);
         console.log("[Popup] Not authenticated, attempting to fetch token");
         
         // First try: check if web app tab is open and use content script
@@ -67,31 +80,32 @@ function IndexPopup() {
           console.log("[Popup] Could not fetch or refresh token - user needs to sign in");
           setIsLoggedIn(false);
         }
+      } finally {
+        isCheckingAuth.current = false;
       }
     };
     
     checkAuth();
     
     // Listen for token storage changes (when background script fetches token)
+    // Only update state - don't re-fetch to avoid infinite loop
     const storage = new Storage();
     storage.watch({
-      convexAuthToken: () => {
-        checkAuth();
+      convexAuthToken: async (change) => {
+        // If token was added/updated, user is logged in
+        // If token was removed, user is logged out
+        if (change.newValue?.token) {
+          setIsLoggedIn(true);
+        } else {
+          setIsLoggedIn(false);
+        }
       }
     });
     
-    // Also check when popup becomes visible (user might have signed in while popup was closed)
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        checkAuth();
-      }
-    };
+    // Don't re-check on visibility change - it causes race conditions
+    // The storage.watch will handle token updates
     
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    return () => {};
   }, []);
 
   const isAlreadySaved = savedLinks?.some(

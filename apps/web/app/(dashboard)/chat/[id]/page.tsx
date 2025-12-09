@@ -49,9 +49,14 @@ export default function ChatPage() {
 
   const addMessage = useMutation(api.conversations.addMessage);
   const createConversation = useMutation(api.conversations.create);
+  const toggleReadStatus = useMutation(api.links.toggleReadStatus);
+  const updateConversationStatus = useMutation(api.conversations.updateStatus);
 
   // Carousel State
   const [selectedIndex, setSelectedIndex] = useState(0);
+  
+  // Track if user has ever connected to a call (to know if we should mark as read on close)
+  const hasEverConnected = useRef(false);
 
   // Filter links for carousel - use currentLinkId for filtering (not urlLinkId)
   const activeLinkId = currentLinkId || urlLinkId;
@@ -152,6 +157,13 @@ export default function ChatPage() {
     if (error) toast.error(error.message);
   }, [error]);
 
+  // Track when user connects to mark completion later
+  useEffect(() => {
+    if (isConnected) {
+      hasEverConnected.current = true;
+    }
+  }, [isConnected]);
+
   // Check if we can start a call
   const canStartCall = !!systemPrompt && !!link?.processedContent && isVapiReady;
 
@@ -167,15 +179,36 @@ export default function ChatPage() {
     }
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (isConnected) {
       disconnect();
     }
+    
+    // Mark link as read and conversation as completed if user ever connected
+    if (hasEverConnected.current && activeLinkId) {
+      try {
+        await toggleReadStatus({ linkId: activeLinkId, isRead: true });
+        if (currentConversationId) {
+          await updateConversationStatus({ 
+            conversationId: currentConversationId as Id<"conversations">, 
+            status: "completed" 
+          });
+        }
+      } catch (err) {
+        console.error("Failed to mark as completed:", err);
+      }
+    }
+    
     router.push("/library");
   };
 
   // === IN-PAGE SWIPE HANDLER (no router.push!) ===
   const handleSwipe = async (index: number) => {
+    // Capture previous state before updating
+    const previousLinkId = currentLinkId;
+    const previousConversationId = currentConversationId;
+    const wasConnected = hasEverConnected.current;
+    
     setSelectedIndex(index);
     if (isConnected) {
       disconnect();
@@ -183,6 +216,24 @@ export default function ChatPage() {
 
     const targetLink = carouselLinks[index];
     if (!targetLink || !user) return;
+
+    // Mark previous link as read and conversation as completed if user was connected
+    if (wasConnected && previousLinkId) {
+      try {
+        await toggleReadStatus({ linkId: previousLinkId, isRead: true });
+        if (previousConversationId) {
+          await updateConversationStatus({ 
+            conversationId: previousConversationId as Id<"conversations">, 
+            status: "completed" 
+          });
+        }
+      } catch (err) {
+        console.error("Failed to mark previous as completed:", err);
+      }
+    }
+    
+    // Reset connection tracking for new link
+    hasEverConnected.current = false;
 
     // Update local state immediately (no navigation!)
     setCurrentLinkId(targetLink.id as Id<"links">);

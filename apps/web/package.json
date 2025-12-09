@@ -28,6 +28,7 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^11.0.0",
     "geist": "^1.2.0",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.460.0",
     "next": "^14.2.32",
     "react": "^18.2.0",

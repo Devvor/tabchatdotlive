@@ -1,7 +1,8 @@
 export default {
   providers: [
     {
-      domain: process.env.CONVEX_SITE_URL || "http://localhost:3000",
+      // Clerk issuer URL - must match the "iss" claim in the JWT
+      domain: "https://united-boxer-27.clerk.accounts.dev",
       applicationID: "convex",
     },
   ],

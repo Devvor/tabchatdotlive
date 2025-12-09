@@ -37,9 +37,28 @@ export const getByUser = query({
 });
 
 // Get topic by link
+// First checks if the link has embedded topic data (new system), 
+// then falls back to legacy topics table
 export const getByLink = query({
   args: { linkId: v.id("links") },
   handler: async (ctx, args) => {
+    // First, check if the link has embedded topic data (new system)
+    const link = await ctx.db.get(args.linkId);
+    if (link && link.summary && link.keyPoints) {
+      // Return topic-like object from link's embedded data
+      return {
+        _id: link._id as unknown as typeof args.linkId, // Use link ID for compatibility
+        userId: link.userId,
+        linkId: link._id,
+        name: link.topicName || link.title,
+        description: link.topicDescription || link.description,
+        summary: link.summary,
+        keyPoints: link.keyPoints,
+        createdAt: link.processedAt || link.createdAt,
+      };
+    }
+
+    // Fall back to legacy topics table
     return await ctx.db
       .query("topics")
       .withIndex("by_link", (q) => q.eq("linkId", args.linkId))
