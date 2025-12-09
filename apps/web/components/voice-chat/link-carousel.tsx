@@ -106,7 +106,7 @@ export function LinkCarousel({
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
             style={{ x, rotate, opacity }}
-            className="absolute w-full h-full bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-blue-900/5 border border-white/50 overflow-hidden ring-1 ring-black/5 cursor-grab active:cursor-grabbing touch-none z-10"
+            className="absolute w-full h-full bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-orange-900/5 border border-white/50 overflow-hidden ring-1 ring-black/5 cursor-grab active:cursor-grabbing touch-none z-10"
           >
             {children}
           </motion.div>
@@ -135,13 +135,13 @@ export function LinkCarousel({
             key={i}
             className={cn(
               "w-2 h-2 rounded-full transition-colors duration-300 backdrop-blur-md",
-              i === selectedIndex ? "bg-blue-600 w-6" : "bg-gray-300/50 hover:bg-gray-400/50"
+              i === selectedIndex ? "bg-gradient-to-r from-orange-500 to-red-500 w-6" : "bg-gray-300/50 hover:bg-gray-400/50"
             )}
             layout
             initial={false}
             animate={{
               width: i === selectedIndex ? 24 : 8,
-              backgroundColor: i === selectedIndex ? "#2563EB" : "rgba(209, 213, 219, 0.5)"
+              backgroundColor: i === selectedIndex ? "#EA580C" : "rgba(209, 213, 219, 0.5)"
             }}
           />
         ))}

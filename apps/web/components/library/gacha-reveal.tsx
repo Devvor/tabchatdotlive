@@ -156,7 +156,7 @@ export function GachaReveal({
           {phase === "spinning" && (
             <div className="flex flex-col items-center justify-center animate-pulse">
               <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-violet-500 via-fuchsia-500 to-amber-500 animate-spin" 
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 via-red-500 to-amber-500 animate-spin" 
                   style={{ animationDuration: "0.6s" }} 
                 />
                 <div className="absolute inset-2 rounded-full bg-black/90 flex items-center justify-center">
@@ -175,7 +175,7 @@ export function GachaReveal({
               {/* Card */}
               <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
                 {/* Header with gradient */}
-                <div className="relative bg-gradient-to-br from-violet-600 via-fuchsia-600 to-amber-500 p-6 pb-8">
+                <div className="relative bg-gradient-to-br from-orange-500 via-red-500 to-amber-500 p-6 pb-8">
                   <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yLjIwOS0xLjc5LTQtNC00cy00IDEuNzkxLTQgNGMwIDIuMjEgMS43OSA0IDQgNHM0LTEuNzkgNC00eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
                   
                   <div 

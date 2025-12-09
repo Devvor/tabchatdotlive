@@ -103,10 +103,10 @@ export function ActivityCalendar({ links }: ActivityCalendarProps) {
 
   const getColor = (count: number) => {
     if (count === 0) return "bg-gray-100 hover:bg-gray-200";
-    if (count === 1) return "bg-emerald-200 hover:bg-emerald-300";
-    if (count <= 3) return "bg-emerald-300 hover:bg-emerald-400";
-    if (count <= 5) return "bg-emerald-400 hover:bg-emerald-500";
-    return "bg-emerald-500 hover:bg-emerald-600";
+    if (count === 1) return "bg-orange-200 hover:bg-orange-300";
+    if (count <= 3) return "bg-orange-300 hover:bg-orange-400";
+    if (count <= 5) return "bg-orange-400 hover:bg-orange-500";
+    return "bg-orange-500 hover:bg-orange-600";
   };
 
   if (links === undefined) {
@@ -202,10 +202,10 @@ export function ActivityCalendar({ links }: ActivityCalendarProps) {
         <span className="mr-2">Less</span>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 rounded-[3px] bg-gray-100" />
-          <div className="w-4 h-4 rounded-[3px] bg-emerald-200" />
-          <div className="w-4 h-4 rounded-[3px] bg-emerald-300" />
-          <div className="w-4 h-4 rounded-[3px] bg-emerald-400" />
-          <div className="w-4 h-4 rounded-[3px] bg-emerald-500" />
+          <div className="w-4 h-4 rounded-[3px] bg-orange-200" />
+          <div className="w-4 h-4 rounded-[3px] bg-orange-300" />
+          <div className="w-4 h-4 rounded-[3px] bg-orange-400" />
+          <div className="w-4 h-4 rounded-[3px] bg-orange-500" />
         </div>
         <span className="ml-2">More</span>
       </div>

@@ -138,7 +138,7 @@ export default function LibraryPage() {
         <Button
           onClick={handleSurpriseMe}
           disabled={unreadCount === 0}
-          className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-amber-500 hover:from-violet-700 hover:via-fuchsia-700 hover:to-amber-600 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
+          className="bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-orange-700 hover:to-red-600 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
         >
           <Sparkles className="w-4 h-4 mr-2" />
           Surprise Me

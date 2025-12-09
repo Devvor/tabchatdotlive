@@ -73,7 +73,7 @@ export function VoiceControls({
         animate={{ opacity: 1, scale: 1 }}
         className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center"
       >
-        <Loader2 className="w-7 h-7 text-blue-600 animate-spin" />
+        <Loader2 className="w-7 h-7 text-orange-500 animate-spin" />
       </motion.div>
     );
   }

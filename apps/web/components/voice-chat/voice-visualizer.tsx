@@ -90,12 +90,12 @@ export function VoiceVisualizer({
       const normalizedLevel = Math.min(Math.max(currentLevelRef.current * 1.5, 0.1), 1);
       const baseAmplitude = 20 + normalizedLevel * 50;
 
-      // Define wave configurations with light theme colors
+      // Define wave configurations with warm orange-red gradients
       const waves = [
-        { amplitude: baseAmplitude * 1.0, frequency: 0.008, speed: 0.8, alpha: 0.8, color: "59, 130, 246" },
-        { amplitude: baseAmplitude * 0.8, frequency: 0.012, speed: 1.0, alpha: 0.5, color: "99, 102, 241" },
-        { amplitude: baseAmplitude * 0.6, frequency: 0.015, speed: 1.2, alpha: 0.3, color: "147, 197, 253" },
-        { amplitude: baseAmplitude * 0.4, frequency: 0.02, speed: 1.5, alpha: 0.2, color: "139, 92, 246" },
+        { amplitude: baseAmplitude * 1.0, frequency: 0.008, speed: 0.8, alpha: 0.85, color: "234, 88, 12" },   // Orange-600
+        { amplitude: baseAmplitude * 0.8, frequency: 0.012, speed: 1.0, alpha: 0.6, color: "249, 115, 22" },   // Orange-500
+        { amplitude: baseAmplitude * 0.6, frequency: 0.015, speed: 1.2, alpha: 0.4, color: "239, 68, 68" },    // Red-500
+        { amplitude: baseAmplitude * 0.4, frequency: 0.02, speed: 1.5, alpha: 0.25, color: "251, 146, 60" },   // Orange-400
       ];
 
       // Draw each wave
@@ -161,7 +161,7 @@ export function VoiceVisualizer({
               onMouseEnter={handleHoverStart}
               onTouchStart={handleHoverStart}
               disabled={isLoading && !onClick}
-              className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl shadow-blue-200 hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 text-white flex items-center justify-center shadow-xl shadow-orange-200/50 hover:from-orange-600 hover:via-orange-700 hover:to-red-600 hover:scale-105 hover:shadow-orange-300/60 active:scale-95 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-7 h-7 animate-spin" />
@@ -197,7 +197,7 @@ export function WaveformBars({
       {bars.map((bar, i) => (
         <motion.div
           key={i}
-          className="w-1 rounded-full bg-gradient-to-t from-blue-600 to-blue-400"
+          className="w-1 rounded-full bg-gradient-to-t from-red-500 via-orange-500 to-orange-400"
           animate={{
             height: isActive ? `${bar.height}px` : "10px",
           }}

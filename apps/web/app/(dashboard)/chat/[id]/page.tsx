@@ -295,7 +295,7 @@ export default function ChatPage() {
   if (showFullPageLoader) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-gray-50/50 backdrop-blur-sm z-50">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </div>
     );
   }
@@ -408,7 +408,7 @@ export default function ChatPage() {
                       exit={{ opacity: 0, y: -10 }}
                       className="text-center"
                     >
-                      <p className="text-sm font-medium text-blue-500">Connecting...</p>
+                      <p className="text-sm font-medium text-orange-500">Connecting...</p>
                     </motion.div>
                   )}
                   
