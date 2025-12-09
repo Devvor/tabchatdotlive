@@ -1,39 +1,27 @@
-import {
-  convexAuthNextjsMiddleware,
-  createRouteMatcher,
-  nextjsMiddlewareRedirect,
-} from "@convex-dev/auth/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
-  "/api/extension/token", // Allow extension token endpoint
+  "/manifest.json",
 ]);
 
-export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+export default clerkMiddleware(async (auth, request) => {
   // Allow API routes with Authorization header (for extension)
   const authHeader = request.headers.get("authorization");
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
   
   if (isApiRoute && authHeader && authHeader.startsWith("Bearer ")) {
     // Don't redirect API routes with Authorization header - let the route handle it
-    return;
-  }
-  
-  // Redirect unauthenticated users away from protected routes
-  if (!isPublicRoute(request) && !(await convexAuth.isAuthenticated())) {
-    return nextjsMiddlewareRedirect(request, "/sign-in");
+    return NextResponse.next();
   }
 
-  // Redirect authenticated users away from auth pages
-  if (
-    (request.nextUrl.pathname.startsWith("/sign-in") ||
-      request.nextUrl.pathname.startsWith("/sign-up")) &&
-    (await convexAuth.isAuthenticated())
-  ) {
-    return nextjsMiddlewareRedirect(request, "/library");
+  // Protect non-public routes
+  if (!isPublicRoute(request)) {
+    await auth.protect();
   }
 });
 

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 
 /**
- * API endpoint to get the Convex auth token for the extension
+ * API endpoint to get the Clerk session token for the extension
  * This allows the extension to authenticate requests using the same token as the web app
  */
 export async function GET(req: NextRequest) {
@@ -22,9 +22,9 @@ export async function GET(req: NextRequest) {
   }
   
   try {
-    const token = await convexAuthNextjsToken();
+    const { getToken, userId } = await auth();
 
-    if (!token) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { 
@@ -37,9 +37,25 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Convex tokens typically expire in 7 days, but we'll set it conservatively
+    // Get a token that can be used with Convex
+    const token = await getToken({ template: "convex" });
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Failed to get token" },
+        { 
+          status: 500,
+          headers: {
+            "Access-Control-Allow-Origin": origin || "*",
+            "Access-Control-Allow-Credentials": "true",
+          },
+        }
+      );
+    }
+
+    // Clerk tokens typically expire in 60 seconds, but we'll set it conservatively
     // The extension will check expiration and refresh as needed
-    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days from now
+    const expiresAt = Date.now() + 55 * 1000; // 55 seconds from now
 
     return NextResponse.json({
       token,
@@ -64,4 +80,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

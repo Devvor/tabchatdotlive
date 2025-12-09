@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@tabchatdotlive/convex";
 import { Id } from "@tabchatdotlive/convex";
-import { fetchQuery } from "convex/nextjs";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -99,17 +98,20 @@ async function scrapeAndExtract(url: string): Promise<{
 
 export async function POST(req: NextRequest) {
   try {
-    const token = await convexAuthNextjsToken();
+    const { getToken, userId } = await auth();
 
-    if (!token) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const convexUser = await fetchQuery(
-      api.users.currentUser,
-      {},
-      { token }
-    );
+    const token = await getToken({ template: "convex" });
+    if (!token) {
+      return NextResponse.json({ error: "Failed to get auth token" }, { status: 401 });
+    }
+
+    convex.setAuth(token);
+
+    const convexUser = await convex.query(api.users.currentUser, {});
 
     if (!convexUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -203,3 +205,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

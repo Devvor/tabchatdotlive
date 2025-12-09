@@ -1,28 +1,19 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
-  // Auth tables from Convex Auth
-  ...authTables,
-
-  // Override the users table with custom fields
+  // Users table - synced from Clerk via webhooks
   users: defineTable({
-    // Auth fields
+    clerkId: v.string(), // Clerk user ID (required, primary identifier)
+    email: v.string(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
-    email: v.optional(v.string()),
-    emailVerificationTime: v.optional(v.number()),
-    phone: v.optional(v.string()),
-    phoneVerificationTime: v.optional(v.number()),
-    isAnonymous: v.optional(v.boolean()),
-    // Legacy: Keep clerkId for migration period (optional)
-    clerkId: v.optional(v.string()),
-    imageUrl: v.optional(v.string()), // Legacy alias for image
-    createdAt: v.optional(v.number()),
+    imageUrl: v.optional(v.string()), // Alias for image
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
   })
-    .index("email", ["email"])
-    .index("by_clerk_id", ["clerkId"]), // Keep for migration
+    .index("by_clerk_id", ["clerkId"])
+    .index("by_email", ["email"]),
 
   // Saved links from browser extension
   // Now includes topic fields directly (previously in separate topics table)

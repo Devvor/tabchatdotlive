@@ -27,8 +27,6 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
-    "@auth/core": "0.37.0",
-    "@convex-dev/auth": "^0.0.80",
     "convex": "^1.17.0",
     "openai": "^6.10.0"
   },

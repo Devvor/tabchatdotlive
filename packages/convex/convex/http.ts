@@ -1,9 +1,8 @@
 import { httpRouter } from "convex/server";
-import { auth } from "./auth";
 
 const http = httpRouter();
 
-auth.addHttpRoutes(http);
+// HTTP routes can be added here if needed
+// Clerk auth is handled externally via Next.js middleware
 
 export default http;
-

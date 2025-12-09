@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@tabchatdotlive/convex";
 
@@ -24,19 +24,22 @@ export async function POST(req: NextRequest) {
   try {
     // Check for Authorization header first (for extension requests)
     const authHeader = req.headers.get("authorization");
-    let token: string | null | undefined = null;
+    let token: string | null = null;
     
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.substring(7);
       console.log("Using token from Authorization header");
     } else {
       // Fall back to cookie-based auth (for web app requests)
-      token = await convexAuthNextjsToken();
-      console.log("Using token from cookies");
+      const { getToken, userId } = await auth();
+      if (userId) {
+        token = await getToken({ template: "convex" });
+        console.log("Using token from Clerk session");
+      }
     }
 
     if (!token) {
-      console.error("No Convex Auth token found");
+      console.error("No auth token found");
       
       return NextResponse.json(
         { 
@@ -61,9 +64,9 @@ export async function POST(req: NextRequest) {
     let convexUser;
     try {
       convexUser = await convex.query(api.users.currentUser, {});
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check if this is an authentication error (expired/invalid token)
-      const errorMessage = error?.message || "";
+      const errorMessage = error instanceof Error ? error.message : "";
       if (errorMessage.includes("Unauthenticated") || errorMessage.includes("Could not verify")) {
         console.error("Token verification failed:", errorMessage);
         return NextResponse.json(

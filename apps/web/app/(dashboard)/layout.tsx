@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@tabchatdotlive/convex";
 import Link from "next/link";
@@ -20,12 +20,19 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { signOut } = useAuthActions();
+  const { signOut } = useClerk();
+  const { user: clerkUser } = useUser();
   const user = useQuery(api.users.currentUser);
 
   const handleSignOut = () => {
-    void signOut();
+    void signOut({ redirectUrl: "/" });
   };
+
+  // Use Clerk user data as fallback while Convex user loads
+  const displayName = user?.name || clerkUser?.fullName || "User";
+  const displayEmail = user?.email || clerkUser?.primaryEmailAddress?.emailAddress || "";
+  const displayImage = user?.image || user?.imageUrl || clerkUser?.imageUrl;
+  const displayInitial = displayName?.charAt(0) || displayEmail?.charAt(0) || "U";
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -48,17 +55,17 @@ export default function DashboardLayout({
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 focus:outline-none">
               <Avatar className="w-8 h-8">
-                <AvatarImage src={user?.image || user?.imageUrl} />
+                <AvatarImage src={displayImage} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
+                  {displayInitial}
                 </AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-2 py-1.5">
-              <p className="text-sm font-medium">{user?.name || "User"}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
+              <p className="text-sm font-medium">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{displayEmail}</p>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>

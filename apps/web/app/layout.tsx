@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   description:
     "Turn any webpage into an AI teacher. Save links and learn through real-time voice conversations.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/tabchat_logo.png",
+    apple: "/tabchat_logo.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -27,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ConvexAuthNextjsServerProvider>
+    <ClerkProvider>
       <html
         lang="en"
         className={`${GeistSans.variable} ${GeistMono.variable}`}
@@ -49,6 +53,6 @@ export default function RootLayout({
           </ConvexClientProvider>
         </body>
       </html>
-    </ConvexAuthNextjsServerProvider>
+    </ClerkProvider>
   );
 }

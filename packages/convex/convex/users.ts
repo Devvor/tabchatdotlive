@@ -1,16 +1,27 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
+
+// Helper to get current user from Clerk identity
+async function getCurrentUserFromClerk(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    return null;
+  }
+  
+  // The subject is the Clerk user ID
+  const clerkId = identity.subject;
+  
+  return await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .first();
+}
 
 // Get current authenticated user
 export const currentUser = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-    return await ctx.db.get(userId);
+    return await getCurrentUserFromClerk(ctx);
   },
 });
 
@@ -22,7 +33,7 @@ export const getById = query({
   },
 });
 
-// Legacy: Get user by Clerk ID (for migration period)
+// Get user by Clerk ID
 export const getByClerkId = query({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
@@ -33,7 +44,7 @@ export const getByClerkId = query({
   },
 });
 
-// Legacy: Create or update user from Clerk webhook (for migration period)
+// Create or update user from Clerk webhook
 export const upsertFromClerk = mutation({
   args: {
     clerkId: v.string(),
@@ -53,6 +64,7 @@ export const upsertFromClerk = mutation({
         name: args.name,
         image: args.imageUrl,
         imageUrl: args.imageUrl,
+        updatedAt: Date.now(),
       });
       return existingUser._id;
     }
@@ -68,7 +80,7 @@ export const upsertFromClerk = mutation({
   },
 });
 
-// Legacy: Delete user by Clerk ID
+// Delete user by Clerk ID
 export const deleteByClerkId = mutation({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
@@ -83,7 +95,7 @@ export const deleteByClerkId = mutation({
   },
 });
 
-// Legacy: Get current user by Clerk ID (kept for backwards compatibility)
+// Get current user by Clerk ID (backwards compatibility)
 export const getCurrentUser = query({
   args: { clerkId: v.string() },
   handler: async (ctx, args) => {
@@ -101,19 +113,21 @@ export const updateProfile = mutation({
     image: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
+    const user = await getCurrentUserFromClerk(ctx);
+    if (!user) {
       throw new Error("Not authenticated");
     }
 
-    const updates: Record<string, string | undefined> = {};
+    const updates: Record<string, string | number | undefined> = {
+      updatedAt: Date.now(),
+    };
     if (args.name !== undefined) updates.name = args.name;
     if (args.image !== undefined) {
       updates.image = args.image;
-      updates.imageUrl = args.image; // Legacy field
+      updates.imageUrl = args.image;
     }
 
-    await ctx.db.patch(userId, updates);
-    return await ctx.db.get(userId);
+    await ctx.db.patch(user._id, updates);
+    return await ctx.db.get(user._id);
   },
 });

@@ -9,7 +9,6 @@
  */
 
 import type * as actions_scrapeLink from "../actions/scrapeLink.js";
-import type * as auth from "../auth.js";
 import type * as conversations from "../conversations.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
@@ -25,7 +24,6 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/scrapeLink": typeof actions_scrapeLink;
-  auth: typeof auth;
   conversations: typeof conversations;
   crons: typeof crons;
   http: typeof http;
