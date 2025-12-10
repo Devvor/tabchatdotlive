@@ -45,24 +45,9 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_user_and_url", ["userId", "url"]),
 
-  // Legacy: Topics table - kept for migration, will be removed later
-  // NOTE: Components still reference this, but new data goes to links directly
-  topics: defineTable({
-    userId: v.id("users"),
-    linkId: v.id("links"),
-    name: v.string(),
-    description: v.optional(v.string()),
-    summary: v.string(),
-    keyPoints: v.array(v.string()),
-    createdAt: v.number(),
-  })
-    .index("by_user", ["userId"])
-    .index("by_link", ["linkId"]),
-
   // Conversations with AI teacher
   conversations: defineTable({
     userId: v.id("users"),
-    topicId: v.optional(v.id("topics")),
     linkId: v.optional(v.id("links")),
     title: v.string(),
     status: v.union(

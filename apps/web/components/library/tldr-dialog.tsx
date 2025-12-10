@@ -31,7 +31,16 @@ export function TLDRDialog({
   onOpenChange,
 }: TLDRDialogProps) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const topic = useQuery(api.topics.getByLink, isOpen ? { linkId } : "skip");
+  // Query link directly - topic data is now embedded in links table
+  const link = useQuery(api.links.getById, isOpen ? { linkId } : "skip");
+  
+  // Transform link to topic-like object for backwards compatibility with UI
+  const topic = link?.summary && link?.keyPoints ? {
+    summary: link.summary,
+    keyPoints: link.keyPoints,
+    name: link.topicName || link.title,
+    description: link.topicDescription || link.description,
+  } : null;
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -79,7 +88,7 @@ export function TLDRDialog({
 
         {/* Content */}
         <div className="flex-1 overflow-hidden min-h-0">
-          {topic === undefined ? (
+          {link === undefined ? (
             <div className="p-4 sm:p-6 space-y-4">
               <div className="space-y-3">
                 <Skeleton className="h-4 w-full" />

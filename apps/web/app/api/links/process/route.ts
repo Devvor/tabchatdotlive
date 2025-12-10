@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@tabchatdotlive/convex";
-import { Id } from "@tabchatdotlive/convex";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -125,7 +124,7 @@ export async function POST(req: NextRequest) {
 
     // Get the link
     const link = await convex.query(api.links.getById, {
-      linkId: linkId as Id<"links">,
+      linkId: linkId,
     });
 
     if (!link) {
@@ -139,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     // Update status to processing
     await convex.mutation(api.links.updateStatus, {
-      linkId: linkId as Id<"links">,
+      linkId: linkId,
       status: "processing",
     });
 
@@ -147,45 +146,16 @@ export async function POST(req: NextRequest) {
     const extracted = await scrapeAndExtract(link.url);
 
     if (extracted && extracted.summary && extracted.keyPoints) {
-      // Update link with processed content
+      // Update link with processed content and topic data (all in one mutation)
       await convex.mutation(api.links.updateProcessedContent, {
-        linkId: linkId as Id<"links">,
+        linkId: linkId,
         processedContent: extracted.markdown,
         contentSummary: extracted.summary,
+        topicName: extracted.title || link.title,
+        topicDescription: extracted.description,
+        summary: extracted.summary,
+        keyPoints: extracted.keyPoints,
       });
-
-      // Check if topic already exists in the legacy topics table
-      // Note: getByLink now returns embedded topic data from links OR legacy topics
-      // We only need to update/create in topics table for legacy support
-      const existingTopic = await convex.query(api.topics.getByLink, {
-        linkId: linkId as Id<"links">,
-      });
-
-      // Check if this is embedded topic data (linkId === _id) or a real topic record
-      const isEmbeddedTopicData = existingTopic && String(existingTopic._id) === String(existingTopic.linkId);
-      
-      if (existingTopic && !isEmbeddedTopicData) {
-        // Update existing topic in legacy topics table
-        await convex.mutation(api.topics.update, {
-          topicId: existingTopic._id as Id<"topics">,
-          name: extracted.title || link.title,
-          description: extracted.description,
-          summary: extracted.summary,
-          keyPoints: extracted.keyPoints,
-        });
-      } else if (!existingTopic) {
-        // Create new topic in legacy topics table (for backwards compatibility)
-        await convex.mutation(api.topics.create, {
-          userId: convexUser._id,
-          linkId: linkId as Id<"links">,
-          name: extracted.title || link.title,
-          description: extracted.description,
-          summary: extracted.summary,
-          keyPoints: extracted.keyPoints,
-        });
-      }
-      // If isEmbeddedTopicData is true, the topic data is already stored in the link
-      // via updateProcessedContent, so no separate topic record is needed
 
       return NextResponse.json({
         success: true,
@@ -195,7 +165,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Mark as failed
       await convex.mutation(api.links.updateStatus, {
-        linkId: linkId as Id<"links">,
+        linkId: linkId,
         status: "failed",
       });
 

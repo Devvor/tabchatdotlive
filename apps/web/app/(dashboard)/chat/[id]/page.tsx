@@ -12,6 +12,7 @@ import { VoiceVisualizer } from "@/components/voice-chat/voice-visualizer";
 import { VoiceControls } from "@/components/voice-chat/voice-controls";
 import { LinkCarousel } from "@/components/voice-chat/link-carousel";
 import { generateTeacherPrompt, generateFirstMessageHook } from "@/lib/vapi";
+// Note: topics table has been removed - all topic data is now embedded in links
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,12 +34,8 @@ export default function ChatPage() {
     currentConversationId ? { conversationId: currentConversationId as Id<"conversations"> } : "skip"
   );
   
-  // Resolve link content from initial conversation
-  const topic = useQuery(
-    api.topics.getWithLink,
-    conversation?.topicId ? { topicId: conversation.topicId } : "skip"
-  );
-  const urlLinkId = conversation?.linkId || topic?.linkId;
+  // Get linkId directly from conversation (topics table removed)
+  const urlLinkId = conversation?.linkId;
 
   // Get all links for carousel (unread + current)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -275,7 +272,7 @@ export default function ChatPage() {
   
   // Display logic
   const isCurrentLink = activeLink && activeLink.id === activeLinkId;
-  const conversationTitle = activeLink?.title || conversation?.title || topic?.name || "Conversation";
+  const conversationTitle = activeLink?.title || conversation?.title || "Conversation";
   
   // Get subtitle (source URL or description)
   const getSubtitle = () => {

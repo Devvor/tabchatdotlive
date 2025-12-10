@@ -5,7 +5,6 @@ import { mutation, query } from "./_generated/server";
 export const create = mutation({
   args: {
     userId: v.id("users"),
-    topicId: v.optional(v.id("topics")),
     linkId: v.optional(v.id("links")),
     title: v.string(),
   },
@@ -13,7 +12,6 @@ export const create = mutation({
     const now = Date.now();
     return await ctx.db.insert("conversations", {
       userId: args.userId,
-      topicId: args.topicId,
       linkId: args.linkId,
       title: args.title,
       status: "active",

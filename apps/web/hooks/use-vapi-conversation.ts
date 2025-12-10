@@ -89,10 +89,15 @@ export function useVapiConversation(
       preInitializedVapi = vapiInstanceRef.current;
     }
 
+    // When systemPrompt is provided, use an inline/transient assistant so the content
+    // is actually passed to the model. assistantId overrides don't support model.messages.
+    const useInlineAssistant = !!options.systemPrompt;
+    
     const config: VapiConfig = {
       publicKey,
       vapiInstance: vapiInstanceRef.current, // Use pre-initialized instance
-      assistantId: options.assistantId || process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID,
+      // Only use assistantId if we're NOT using inline assistant with content
+      assistantId: useInlineAssistant ? undefined : (options.assistantId || process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID),
       assistantOverrides: options.systemPrompt
         ? {
             transcriber: {

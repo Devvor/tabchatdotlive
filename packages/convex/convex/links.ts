@@ -183,17 +183,26 @@ export const updateStatus = mutation({
   },
 });
 
-// Update link with processed content
+// Update link with processed content and topic data
 export const updateProcessedContent = mutation({
   args: {
     linkId: v.id("links"),
     processedContent: v.string(),
     contentSummary: v.optional(v.string()),
+    // Topic fields (optional for backwards compatibility)
+    topicName: v.optional(v.string()),
+    topicDescription: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    keyPoints: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.linkId, {
       processedContent: args.processedContent,
       contentSummary: args.contentSummary,
+      topicName: args.topicName,
+      topicDescription: args.topicDescription,
+      summary: args.summary,
+      keyPoints: args.keyPoints,
       status: "completed",
       processedAt: Date.now(),
     });
