@@ -1,7 +1,7 @@
 {
   "name": "extension",
   "displayName": "TabChat | Chat with your tabs",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Save any webpage and voice chat with it later.",
   "private": true,
   "scripts": {
