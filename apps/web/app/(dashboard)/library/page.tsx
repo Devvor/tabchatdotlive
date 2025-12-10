@@ -71,11 +71,15 @@ export default function LibraryPage() {
   // Calculate unread count
   const unreadCount = unreadLinks.length;
 
-  // Pick a random unread link
-  const pickRandomUnread = useCallback(() => {
-    if (unreadLinks.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * unreadLinks.length);
-    setSelectedGachaLink(unreadLinks[randomIndex]);
+  // Pick a random unread link, optionally excluding a specific ID
+  const pickRandomUnread = useCallback((excludeId?: string) => {
+    const availableLinks = excludeId 
+      ? unreadLinks.filter(link => link._id !== excludeId)
+      : unreadLinks;
+    
+    if (availableLinks.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * availableLinks.length);
+    setSelectedGachaLink(availableLinks[randomIndex]);
   }, [unreadLinks]);
 
   // Open gacha reveal

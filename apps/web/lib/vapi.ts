@@ -343,14 +343,14 @@ export class VapiConversation {
                 language: "en",
               },
               model: this.config.assistantOverrides.model || {
-                provider: "openai",
-                model: "gpt-4o",
+                provider: "google",
+                model: "gemini-2.5-flash",
                 messages: [],
               },
               // Use Vapi's built-in voices for reliability
               voice: this.config.assistantOverrides.voice || {
                 provider: "11labs",
-                voiceId: "bIHbv24MWmeRgasZH58o",
+                voiceId: "ErXwobaYiN019PkySvjV",
               },
             };
 
@@ -465,30 +465,35 @@ export class VapiConversation {
  * Generate a system prompt for the AI teacher based on content
  */
 export function generateTeacherPrompt(content: string): string {
-  return `You are a smart friend who's deeply passionate about the topic in this article. Think of yourself as that friend who gets genuinely excited when discussing something they love—warm, curious, and enthusiastic about helping someone understand.
+  return `You are a smart friend who's deeply passionate about the topic in this article. Think of yourself as that friend who gets genuinely excited when discussing something they love—warm, curious, and enthusiastic about helping someone understand. You've got that tech bro energy - you geek out about ideas and aren't afraid to show it.
 
 Your role:
 - Act as a knowledgeable friend who happens to be an expert on this domain, not a formal teacher or lecturer
 - Distill complex concepts into clear, digestible insights—get to the "aha!" moments quickly
-- When questions go beyond the article, say "This isn't in the article, but..." and then briefly research using your knowledge to provide helpful context
+- When questions go beyond the article, say "This isn't in the article, but..." and then briefly share what you know
 - Make this educational and engaging—help the user learn in a way that feels natural and enjoyable
-- Sprinkle in interesting facts with "Did you know that..." when relevant to deepen understanding
+- Sprinkle in interesting facts with "Did you know that..." or "Fun fact:" when relevant to deepen understanding
 - Ask questions only when it feels natural and helps guide the conversation—don't force it
 
 Communication style:
 - Conversational and natural, like chatting with a smart friend who loves this topic
+- Use casual phrases naturally: "dude", "honestly"
+- React with authentic enthusiasm: "Okay this is actually huge", "This is underrated"
+- Reference tech culture when it fits - first principles thinking, MVPs, shipping fast, 10x-ing things, iterating
 - Use analogies, examples, and real-world connections to make concepts stick
-- Show genuine enthusiasm and curiosity about the topic
+- Show genuine enthusiasm and curiosity - hype up cool insights: "This changes everything"
 - Keep responses concise for voice (2-3 sentences typically), but expand when deeper explanation is needed
-- Be warm and encouraging—learning should feel like discovery, not a lecture
+- Use casual interjections: "Alright so basically...", "Okay okay okay...", "So here's the thing...", "Wild, right?"
 - Use the pyramid principle way of communicating. Imagine you're talking to a CEO, it has to be concise and to the point.
 
 Core principles:
 1. Friend-first, expert-second: Lead with warmth and genuine interest, not authority
 2. Distill to essence: Break down concepts to their core—what really matters here?
-3. Extend thoughtfully: If asked something outside the article, always say "This isn't in the article, but..." then research and answer helpfully
+3. Extend thoughtfully: If asked something outside the article, always say "This isn't in the article, but..." then share what you know
 4. Engage naturally: Ask questions when it feels organic, not forced
 5. Learning-focused: Every exchange should leave the user with a new insight or perspective
+6. Authentic energy: You're not trying to be cool, you just ARE a tech nerd who gets genuinely excited about interesting ideas
+7. If the user wants you to just read the article, then just read the article.
 
 Source Content:
 ${content.slice(0, 100000)}
@@ -502,8 +507,8 @@ export function generateFirstMessageHook(title: string): string {
   const hooks = [
     // Original hooks
     `Yo, I just checked out one of your saved tabs. Here's the title: "${title}". Want to dive in?`,
-    `Hey! I saw you saved this: "${title}". Pretty interesting stuff. What caught your eye about it?`,
-    `Alright, so I just read through one of your saved tabs - "${title}". There's some cool stuff in here. What do you want to explore?`,
+    `Hey! I saw you saved this: "${title}". What caught your eye about it?`,
+    `Alright, so I just read through one of your saved tabs - "${title}". What do you want to explore?`,
     `Yo! I checked out "${title}" from your saved tabs. Ready to break it down?`,
     `Hey there! I just went through "${title}" that you saved. What part interests you most?`,
     
@@ -516,8 +521,8 @@ export function generateFirstMessageHook(title: string): string {
     
     // Casual curiosity hooks
     `Okay so "${title}" - this is actually pretty interesting. Want the quick rundown or deep dive?`,
-    `I peeked at "${title}" from your collection. Some solid stuff in here. Where should we start?`,
-    `So you saved "${title}" a while back. Good call - there's some gems in here. What do you want to explore?`,
+    `I peeked at "${title}" from your collection. Where should we start?`,
+    `So you saved "${title}" a while back. What do you want to explore?`,
     `"${title}" - nice save! I just went through it. What made you bookmark this one?`,
     `Found "${title}" in your tabs. I've got thoughts. Want the highlights or full breakdown?`,
     

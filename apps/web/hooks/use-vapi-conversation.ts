@@ -106,8 +106,8 @@ export function useVapiConversation(
               language: "en",
             },
             model: {
-              provider: "openai",
-              model: "gpt-4o",
+              provider: "google",
+              model: "gemini-2.5-flash",
               messages: [
                 {
                   role: "system",
@@ -117,7 +117,7 @@ export function useVapiConversation(
             },
             voice: {
               provider: "11labs",
-              voiceId: "bIHbv24MWmeRgasZH58o",
+              voiceId: "ErXwobaYiN019PkySvjV",
             },
             firstMessage: options.firstMessage,
           }

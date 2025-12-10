@@ -52,7 +52,7 @@ interface GachaRevealProps {
   isOpen: boolean;
   onClose: () => void;
   unreadLinks: LinkWithTopic[];
-  onSelectNew: () => void;
+  onSelectNew: (excludeId?: string) => void;
   selectedLink: LinkWithTopic | null;
 }
 
@@ -95,15 +95,37 @@ export function GachaReveal({
     if (unreadLinks.length <= 1) return;
     setPhase("spinning");
     setTimeout(() => {
-      onSelectNew();
+      // Exclude current link so we don't show the same one again
+      onSelectNew(selectedLink?._id);
       setTimeout(() => setPhase("revealed"), 1200);
     }, 100);
-  }, [unreadLinks.length, onSelectNew]);
+  }, [unreadLinks.length, onSelectNew, selectedLink?._id]);
 
   const handleToggleRead = async () => {
     if (!selectedLink) return;
+    
+    const wasUnread = !selectedLink.isRead;
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await toggleRead({ linkId: selectedLink._id as any, isRead: !selectedLink.isRead });
+    
+    // If marking as read, show the next unread link
+    if (wasUnread) {
+      // Check if there are other unread links besides the current one
+      const remainingUnread = unreadLinks.filter(link => link._id !== selectedLink._id);
+      
+      if (remainingUnread.length > 0) {
+        // Show spinning animation and select new link (excluding the one just marked as read)
+        setPhase("spinning");
+        setTimeout(() => {
+          onSelectNew(selectedLink._id);
+          setTimeout(() => setPhase("revealed"), 1200);
+        }, 100);
+      } else {
+        // No more unread links, close the modal
+        onClose();
+      }
+    }
   };
 
   const handleStartChat = async () => {

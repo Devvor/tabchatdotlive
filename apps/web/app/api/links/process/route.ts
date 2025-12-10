@@ -7,6 +7,11 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const FIRECRAWL_API_URL = "https://api.firecrawl.dev/v1/scrape";
 
+interface Comment {
+  author?: string;
+  text: string;
+}
+
 // Generate a concise one-liner description (max 7 words) from summary
 function generateDescription(summary?: string, keyPoints?: string[]): string | undefined {
   if (!summary && !keyPoints) return undefined;
@@ -31,12 +36,28 @@ function generateDescription(summary?: string, keyPoints?: string[]): string | u
   return undefined;
 }
 
+// Clean markdown by removing images and link-only lines
+function cleanMarkdown(markdown: string): string {
+  return markdown
+    // Remove images
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    // Remove HTML img tags
+    .replace(/<img[^>]*>/gi, '')
+    // Remove empty lines left behind
+    .replace(/\n{3,}/g, '\n\n')
+    // Remove link-only lines (like footer link lists)
+    .replace(/^\s*\[.*?\]\(.*?\)\s*$/gm, '')
+    .trim();
+}
+
 async function scrapeAndExtract(url: string): Promise<{
   markdown: string;
+  articleBody?: string;
   title?: string;
   description?: string;
   summary?: string;
   keyPoints?: string[];
+  comments?: Comment[];
 } | null> {
   try {
     const response = await fetch(FIRECRAWL_API_URL, {
@@ -49,22 +70,53 @@ async function scrapeAndExtract(url: string): Promise<{
         url,
         formats: ["markdown", "extract"],
         onlyMainContent: true,
+        // Exclude non-content elements
+        excludeTags: [
+          "img", "figure", "figcaption", 
+          "aside", "footer", "nav", 
+          "iframe", "video", "audio",
+          "script", "style", "noscript",
+          "svg", "canvas"
+        ],
         extract: {
           schema: {
             type: "object",
             properties: {
-              title: { type: "string" },
+              title: { 
+                type: "string",
+                description: "The main headline/title of the article"
+              },
+              articleBody: {
+                type: "string",
+                description: "The full body text of the article. Include all paragraphs and sections of the main content. Do not include navigation, sidebars, advertisements, or footer content."
+              },
               description: { 
                 type: "string",
-                description: "A concise one-liner epic point summarizing the article's main message. Maximum 7 words."
+                description: "A concise one-liner hook summarizing the article's main message. Maximum 7 words."
               },
-              summary: { type: "string" },
+              summary: { 
+                type: "string",
+                description: "A comprehensive summary of the article in 2-3 sentences."
+              },
               keyPoints: {
                 type: "array",
                 items: { type: "string" },
+                description: "The main key points or takeaways from the article."
+              },
+              comments: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    author: { type: "string" },
+                    text: { type: "string" }
+                  },
+                  required: ["text"]
+                },
+                description: "User comments on the article, if a comment section exists. Return empty array if no comments."
               },
             },
-            required: ["title", "summary", "keyPoints"],
+            required: ["title", "articleBody", "summary", "keyPoints"],
           },
         },
       }),
@@ -76,12 +128,18 @@ async function scrapeAndExtract(url: string): Promise<{
     }
 
     const data = await response.json();
+    const rawMarkdown = data.data?.markdown || "";
+    const articleBody = data.data?.extract?.articleBody;
+    
     const extracted = {
-      markdown: data.data?.markdown || "",
+      // Prefer articleBody, fall back to cleaned markdown
+      markdown: articleBody || cleanMarkdown(rawMarkdown),
+      articleBody: articleBody,
       title: data.data?.extract?.title || data.data?.metadata?.title,
       description: data.data?.extract?.description,
       summary: data.data?.extract?.summary,
       keyPoints: data.data?.extract?.keyPoints,
+      comments: data.data?.extract?.comments || [],
     };
     
     if (!extracted.description) {
