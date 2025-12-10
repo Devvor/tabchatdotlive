@@ -1,5 +1,5 @@
 import { Storage } from "@plasmohq/storage";
-import { makeAuthenticatedRequest, isAuthenticated, listenForAuthToken, fetchTokenFromWebApp } from "./lib/auth";
+import { makeAuthenticatedRequest, isAuthenticated, listenForAuthToken, fetchTokenFromWebApp, refreshToken } from "./lib/auth";
 import { getWebUrl } from "./lib/config";
 
 const storage = new Storage();
