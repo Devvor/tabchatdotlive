@@ -16,7 +16,8 @@
     "lucide-react": "^0.460.0",
     "plasmo": "^0.88.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.260",
@@ -33,7 +34,8 @@
       "storage",
       "tabs",
       "cookies",
-      "scripting"
+      "scripting",
+      "contextMenus"
     ],
     "host_permissions": [
       "https://*.clerk.accounts.dev/*",
@@ -41,7 +43,15 @@
       "http://localhost:3000/*",
       "https://*.vercel.app/*",
       "https://tabchat.live/*"
-    ]
+    ],
+    "commands": {
+      "save-current-page": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+S",
+          "mac": "Command+Shift+S"
+        },
+        "description": "Save current page to TabChat"
+      }
+    }
   }
 }
-
