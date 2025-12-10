@@ -34,11 +34,11 @@ export function TLDRDialog({
   // Query link directly - topic data is now embedded in links table
   const link = useQuery(api.links.getById, isOpen ? { linkId } : "skip");
   
-  // Transform link to topic-like object for backwards compatibility with UI
-  const topic = link?.summary && link?.keyPoints ? {
-    summary: link.summary,
+  // Transform link to topic-like object for UI display
+  const topic = link?.contentSummary && link?.keyPoints ? {
+    summary: link.contentSummary,
     keyPoints: link.keyPoints,
-    name: link.topicName || link.title,
+    name: link.title,
     description: link.topicDescription || link.description,
   } : null;
 

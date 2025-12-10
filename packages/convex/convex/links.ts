@@ -69,16 +69,16 @@ export const getByUserPaginated = query({
 
     // Transform results to include topic data
     const itemsWithTopics = results.page.map((link) => {
-      if (link.summary || link.keyPoints) {
+      if (link.contentSummary || link.keyPoints) {
         return {
           ...link,
           topic: {
             _id: link._id,
             userId: link.userId,
             linkId: link._id,
-            name: link.topicName || link.title,
+            name: link.title,
             description: link.topicDescription || link.description,
-            summary: link.summary || "",
+            summary: link.contentSummary || "",
             keyPoints: link.keyPoints || [],
             createdAt: link.processedAt || link.createdAt,
           },
@@ -113,24 +113,23 @@ export const getByUserWithTopics = query({
     
     // Transform to include topic object for backwards compatibility with UI
     return links.map((link) => {
-      // If link has new topic fields, use them
-      if (link.summary || link.keyPoints) {
+      // If link has processed content, include topic data
+      if (link.contentSummary || link.keyPoints) {
         return {
           ...link,
           topic: {
             _id: link._id, // Use link ID as topic ID for compatibility
             userId: link.userId,
             linkId: link._id,
-            name: link.topicName || link.title,
+            name: link.title,
             description: link.topicDescription || link.description,
-            summary: link.summary || "",
+            summary: link.contentSummary || "",
             keyPoints: link.keyPoints || [],
             createdAt: link.processedAt || link.createdAt,
           },
         };
       }
-      // For legacy links without new fields, return null topic
-      // (the UI will fall back to querying the topics table)
+      // For unprocessed links, return null topic
       return { ...link, topic: null };
     });
   },
@@ -189,23 +188,25 @@ export const updateProcessedContent = mutation({
     linkId: v.id("links"),
     processedContent: v.string(),
     contentSummary: v.optional(v.string()),
-    // Topic fields (optional for backwards compatibility)
-    topicName: v.optional(v.string()),
-    topicDescription: v.optional(v.string()),
-    summary: v.optional(v.string()),
+    // AI-extracted fields
+    title: v.optional(v.string()),  // Update title if AI extracts a better one
+    topicDescription: v.optional(v.string()),  // 7-word hook
     keyPoints: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.linkId, {
+    const updates: Record<string, unknown> = {
       processedContent: args.processedContent,
       contentSummary: args.contentSummary,
-      topicName: args.topicName,
       topicDescription: args.topicDescription,
-      summary: args.summary,
       keyPoints: args.keyPoints,
       status: "completed",
       processedAt: Date.now(),
-    });
+    };
+    // Only update title if provided
+    if (args.title) {
+      updates.title = args.title;
+    }
+    await ctx.db.patch(args.linkId, updates);
   },
 });
 
@@ -267,28 +268,30 @@ export const internalUpdateProcessedContent = internalMutation({
   },
 });
 
-// Internal: Update link with all topic data (new consolidated approach)
+// Internal: Update link with all topic data (for actions)
 export const internalUpdateWithTopicData = internalMutation({
   args: {
     linkId: v.id("links"),
     processedContent: v.string(),
     contentSummary: v.optional(v.string()),
-    topicName: v.optional(v.string()),
-    topicDescription: v.optional(v.string()),
-    summary: v.optional(v.string()),
+    title: v.optional(v.string()),  // Update title if AI extracts a better one
+    topicDescription: v.optional(v.string()),  // 7-word hook
     keyPoints: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.linkId, {
+    const updates: Record<string, unknown> = {
       processedContent: args.processedContent,
       contentSummary: args.contentSummary,
-      topicName: args.topicName,
       topicDescription: args.topicDescription,
-      summary: args.summary,
       keyPoints: args.keyPoints,
       status: "completed",
       processedAt: Date.now(),
-    });
+    };
+    // Only update title if provided
+    if (args.title) {
+      updates.title = args.title;
+    }
+    await ctx.db.patch(args.linkId, updates);
   },
 });
 

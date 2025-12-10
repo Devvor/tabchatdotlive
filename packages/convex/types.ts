@@ -10,22 +10,21 @@ export type LinkId = Id<"links">;
 
 export type LinkStatus = "pending" | "processing" | "completed" | "failed";
 
-export interface LinkWithTopic extends Link {
-  topic: {
-    _id: string;
-    userId: string;
-    linkId: string;
-    name: string;
-    description?: string;
-    summary: string;
-    keyPoints: string[];
-    createdAt: number;
-  } | null;
+// Topic-like object derived from link data (for UI compatibility)
+export interface TopicData {
+  _id: string;
+  userId: string;
+  linkId: string;
+  name: string;
+  description?: string;
+  summary: string;  // Maps to link.contentSummary
+  keyPoints: string[];
+  createdAt: number;
 }
 
-// ============ Topic Types (Legacy) ============
-export type Topic = Doc<"topics">;
-export type TopicId = Id<"topics">;
+export interface LinkWithTopic extends Link {
+  topic: TopicData | null;
+}
 
 // ============ Conversation Types ============
 export type Conversation = Doc<"conversations">;

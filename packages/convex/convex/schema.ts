@@ -30,15 +30,16 @@ export default defineSchema({
       v.literal("failed")
     ),
     processedContent: v.optional(v.string()),
-    contentSummary: v.optional(v.string()),
+    contentSummary: v.optional(v.string()),  // AI-generated summary of the content
     createdAt: v.number(),
     processedAt: v.optional(v.number()),
     isRead: v.optional(v.boolean()),
-    // Topic fields (merged from topics table)
+    // AI-extracted fields
+    topicDescription: v.optional(v.string()),  // 7-word hook/one-liner
+    keyPoints: v.optional(v.array(v.string())),  // Key takeaways
+    // DEPRECATED: kept for existing data, use title/contentSummary instead
     topicName: v.optional(v.string()),
-    topicDescription: v.optional(v.string()),
     summary: v.optional(v.string()),
-    keyPoints: v.optional(v.array(v.string())),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_status", ["userId", "status"])

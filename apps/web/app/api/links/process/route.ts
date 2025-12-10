@@ -146,14 +146,13 @@ export async function POST(req: NextRequest) {
     const extracted = await scrapeAndExtract(link.url);
 
     if (extracted && extracted.summary && extracted.keyPoints) {
-      // Update link with processed content and topic data (all in one mutation)
+      // Update link with processed content and AI-extracted data
       await convex.mutation(api.links.updateProcessedContent, {
         linkId: linkId,
         processedContent: extracted.markdown,
         contentSummary: extracted.summary,
-        topicName: extracted.title || link.title,
-        topicDescription: extracted.description,
-        summary: extracted.summary,
+        title: extracted.title || link.title,  // Update title if AI extracted a better one
+        topicDescription: extracted.description,  // 7-word hook
         keyPoints: extracted.keyPoints,
       });
 

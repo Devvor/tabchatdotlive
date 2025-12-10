@@ -13,7 +13,6 @@ import type * as conversations from "../conversations.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as links from "../links.js";
-import type * as topics from "../topics.js";
 import type * as users from "../users.js";
 
 import type {
@@ -28,7 +27,6 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   http: typeof http;
   links: typeof links;
-  topics: typeof topics;
   users: typeof users;
 }>;
 
